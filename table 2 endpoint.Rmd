@@ -1,0 +1,590 @@
+---
+title: "Table 2 endpoint"
+author: "Chishu Yin"
+date: "2023/3/22"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+a <- function(pr,pt,fi)
+{
+  1+(fi-1)*(pr+pt)
+}
+
+b <- function(pr,pt,fi) 
+{
+  -4*fi*(fi-1)*pr*pt
+}
+
+##p11,p12,p21,p22
+prob <- function(pr,pt,fi)
+{
+  if(fi==1)
+  {
+    p<-c(pr*pt,pr-pr*pt,pt-pr*pt,1-pr-pt+pr*pt)
+    p
+  }
+  else{
+  a<- 1+(fi-1)*(pr+pt)
+  b <- -4*fi*(fi-1)*pr*pt
+  p <- matrix(nrow = 2, ncol = 2)
+  p[1,1] <- round(( a - ( a^2+b )^(0.5) ) / (2*(fi-1)),digits = 4)
+  p[1,2] <- round(pr-p[1,1],digits = 4)
+  p[2,1] <- round(pt-p[1,1],digits = 4)
+  p[2,2] <- round(1 - p[1,1] - p[1,2] - p[2,1],digits = 4)
+  p <- c(p[1,1],p[1,2],p[2,1],p[2,2])
+  p}
+}
+```
+
+
+
+```{r}
+n1<-37
+n2<-49  
+r1<- 1
+r2<- 7
+t1<- 1
+t2<- 8
+
+p_e0<-0.5
+p_s0<-0.5
+delta_e2<-0.2
+delta_s2<-0.2
+delta_e1<-0.05
+delta_s1<-0.05
+
+
+
+    p_e<- c(p_e0,p_e0+delta_e1, p_e0+delta_e1)
+    p_s<- c(p_s0,p_s0+delta_s1, p_s0+delta_s1)
+    
+    k<- length(p_e) -1
+    phi <- 2
+
+    p00 <- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p00[i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+    
+    
+
+
+```
+
+
+
+#Simulation PCS0 (pi_0 selected)
+```{r}
+NN<-10
+result0<-seq(0,0,length=NN)
+
+for(j in  1:NN)
+{
+s<-0
+N<-1000
+
+x0<-rmultinom(N,n1,p00[1,])
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p00[2,])
+x2<-rmultinom(N,n1,p00[3,])
+
+xx0<-rmultinom(N,n2,p00[1,])
+#x<-matrix(data = NA,nrow = k, ncol = N)
+xx1<-rmultinom(N,n2,p00[2,])
+xx2<-rmultinom(N,n2,p00[3,])
+
+
+for( i in 1:N)
+{
+  if(    (  (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))<r1 | (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))<t1  )     &    (  (x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))<r1 | (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))<t1  )  )
+  {
+    s<-s+1
+  }
+  if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1  &  ( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))  +  (xx2[1,i]+xx2[2,i]-(xx0[1,i]+xx0[2,i]))   <r2 | (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))   +  (xx2[1,i]+xx2[3,i]-(xx0[1,i]+xx0[3,i]))  <t2)      )
+  {
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) < t1 )
+    {
+      s<-s+1
+    }
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]> x1[1,i]+x1[2,i])
+    {
+      s<-s+1
+    }
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]== x1[1,i]+x1[2,i])
+    {
+      s<-s+1/2
+    }
+  }
+  if( (x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))>=t1  &  ( (x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))  +  (xx1[1,i]+xx1[2,i]-(xx0[1,i]+xx0[2,i]))   <r2 | (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))   +  (xx1[1,i]+xx1[3,i]-(xx0[1,i]+xx0[3,i]))  <t2)      )
+  {
+    if( (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i])) < t1 )
+    {
+      s<-s+1
+    }
+    if( (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]< x1[1,i]+x1[2,i])
+    {
+      s<-s+1
+    }
+    if( (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]== x1[1,i]+x1[2,i])
+    {
+      s<-s+1/2
+    }
+  }
+
+
+}
+result0[j]<-s/N
+}
+
+summary(result0)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+p_e<- c(p_e0,p_e0+delta_e1, p_e0+delta_e2)
+p_s<- c(p_s0,p_s0+delta_s1, p_s0+delta_s2)
+
+    
+    k<- length(p_e) -1  
+    phi <- 2
+
+    p <- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p[i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+    
+    
+
+p0<-p[1,] #control
+p1<-p[2,]
+p2<-p[3,]
+```
+
+
+
+
+
+
+
+
+#Simulation PCS1(pi_k selected)
+```{r}
+NN<-10
+result<-seq(0,0,length=NN)
+
+for(j in  1:NN)
+{
+s<-0
+N<-10000
+
+x0<-rmultinom(N,n1,p[1,])
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p[2,])
+x2<-rmultinom(N,n1,p[3,])
+
+xx0<-rmultinom(N,n2,p[1,])
+#x<-matrix(data = NA,nrow = k, ncol = N)
+xx1<-rmultinom(N,n2,p[2,])
+xx2<-rmultinom(N,n2,p[3,])
+
+
+for( i in 1:N)
+{
+  if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1  &  (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))  +  (xx2[1,i]+xx2[2,i]-(xx0[1,i]+xx0[2,i]))   >=r2 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))   +  (xx2[1,i]+xx2[3,i]-(xx0[1,i]+xx0[3,i]))  >=t2)
+  {
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) < t1 )
+    {
+      s<-s+1
+    }
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]> x1[1,i]+x1[2,i])
+    {
+      s<-s+1
+    }
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]== x1[1,i]+x1[2,i])
+    {
+      s<-s+1/2
+    }
+  }
+
+}
+result[j]<-s/N
+}
+
+summary(result)
+```
+
+
+
+#Find parameters
+```{r}
+P1<-0.85
+P0<-0.75
+for(n1 in 30:50)
+{
+  for(n2 in 30 :50)
+  {
+    for(r1 in 0:10)
+    {
+      for(r2 in r1:15)
+      {
+        for(t1 in 0:10)
+        {
+          for(t2 in t1:15)
+          {
+
+            
+
+            
+NN<-10
+result<-seq(0,0,length=NN)
+
+for(j in  1:NN)
+{
+s<-0
+N<-100  
+
+x0<-rmultinom(N,n1,p00[1,])
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p00[2,])
+x2<-rmultinom(N,n1,p00[3,])
+
+xx0<-rmultinom(N,n2,p00[1,])
+#x<-matrix(data = NA,nrow = k, ncol = N)
+xx1<-rmultinom(N,n2,p00[2,])
+xx2<-rmultinom(N,n2,p00[3,])
+
+
+for( i in 1:N)
+{
+  if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1  &  (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))  +  (xx2[1,i]+xx2[2,i]-(xx0[1,i]+xx0[2,i]))   >=r2 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))   +  (xx2[1,i]+xx2[3,i]-(xx0[1,i]+xx0[3,i]))  >=t2)
+  {
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) < t1 )
+    {
+      s<-s+1
+    }
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]> x1[1,i]+x1[2,i])
+    {
+      s<-s+1
+    }
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]== x1[1,i]+x1[2,i])
+    {
+      s<-s+1/2
+    }
+  }
+
+}
+result[j]<-s/N
+}
+
+
+
+
+if(mean(result)<P1)
+{
+  break
+}
+
+
+
+
+#PCS0
+NN<-10
+result0<-seq(0,0,length=NN)
+
+for(j in  1:NN)
+{
+s<-0
+N<-100
+
+x0<-rmultinom(N,n1,p00[1,])
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p00[2,])
+x2<-rmultinom(N,n1,p00[3,])
+
+xx0<-rmultinom(N,n2,p00[1,])
+#x<-matrix(data = NA,nrow = k, ncol = N)
+xx1<-rmultinom(N,n2,p00[2,])
+xx2<-rmultinom(N,n2,p00[3,])
+
+
+for( i in 1:N)
+{
+  if(    (  (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))<r1 | (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))<t1  )     &    (  (x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))<r1 | (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))<t1  )  )
+  {
+    s<-s+1
+  }
+ if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1  &  ( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))  +  (xx2[1,i]+xx2[2,i]-(xx0[1,i]+xx0[2,i]))   <r2 | (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))   +  (xx2[1,i]+xx2[3,i]-(xx0[1,i]+xx0[3,i]))  <t2)        )
+  {
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) < t1 )
+    {
+      s<-s+1
+    }
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]> x1[1,i]+x1[2,i])
+    {
+      s<-s+1
+    }
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]== x1[1,i]+x1[2,i])
+    {
+      s<-s+1/2
+    }
+  }
+   if( (x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))>=t1  &  ( (x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))  +  (xx1[1,i]+xx1[2,i]-(xx0[1,i]+xx0[2,i]))   <r2 | (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))   +  (xx1[1,i]+xx1[3,i]-(xx0[1,i]+xx0[3,i]))  <t2)      )
+  {
+    if( (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i])) < t1 )
+    {
+      s<-s+1
+    }
+    if( (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]< x1[1,i]+x1[2,i])
+    {
+      s<-s+1
+    }
+    if( (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]== x1[1,i]+x1[2,i])
+    {
+      s<-s+1/2
+    }
+  }
+
+
+}
+result0[j]<-s/N
+}
+
+if(mean(result0)>=P0)
+{
+  print(c(n1,n2,r1,r2,t1,t2))
+  break
+}
+
+
+          }
+          
+        }
+        
+      }
+      
+    }
+    
+  }
+  
+  
+}
+```
+#jiaquan(expected) sample size
+#stage 1 sample size min
+#normal large sample
+
+
+
+
+
+
+
+
+
+
+
+
+
+$P(Xr=xr,Xt=xt)$
+```{r}
+#P(Xr=xr,Xt=xt)
+joint_prob <- function(xr,xt,n1,p)
+{
+  sum <- 0
+  for(i in max(0,xr+xt-n1) : min(xr,xt))
+  {
+    if(i<0 | xr-i<0 | xt-i<0 | n1-xr-xt+i<0)
+    {
+      sum<-sum+0
+    }
+    else{
+    x <- c( i , xr-i , xt-i , n1-xr-xt+i )
+    sum <- sum + dmultinom(x, size = NULL, prob = p, log = FALSE)
+    ##cat("s = ", sum,"x =", x, "\n")
+    }
+  }
+  sum
+}
+```
+
+
+#function for k=2, PCS1-1 delta1=delta2, note shizi page 2-3
+```{r}
+#p0 control; p1, p2 are treatments, p2 selected
+fct_PCS11 <- function(e1,e2,s1,s2,n1,n2,p0,p1,p2)
+{
+  s<-0
+  for( i in 0: min(n1-e1,n1) )
+  {
+    for( j in max(1-s1,0): min(n1,n1-s1))
+    {
+      for( k in 0 : n1)
+      {
+        for( l in 0 : max(min(n1,s1+j-1),0) )
+        {
+          for( a in max(min(e1+i,n1),0) : n1)
+          {
+            for( b in max(min(s1+j,n1),0) : n1)
+            {
+              for( c in 0 : min(n2+a-i-e2,n2) )
+              {
+                for( d in 0 : min(n2+b-j-s2,n2))
+                {
+                  for(e in max(min(e2+i+c-a,n2),0) : n2)
+                  {
+                    for(f in max(min(s2+j+d-b,n2),0) : n2)
+                    {
+                      
+                     #if(   s1+j-1<0 | e1+i>n1  | s1+j>n1 | e2+i+c-a>n1  | s2+j+d-b>n1 )
+                      #if( n2+a-i-e2<0 | n2+b-j-s2<0 | i<0 | j<0 | k<0 | l<0 | a<0 | b<0| c<0| d<0 | e<0 | f<0)
+                      #{
+                      #  s<-s+0
+                      #}
+                      
+                      #else
+                      {
+                        s <- s + joint_prob(i,j,n1,p0) * joint_prob(k,l,n1,p1) * joint_prob(a,b,n1,p2) * joint_prob(c,d,n2,p0) * joint_prob(e,f,n2,p2)
+                      }
+                      
+                      
+                      
+                      
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  s
+}
+```
+
+#function for k=2, PCS1-2 delta1=delta2, note shizi page 2-3
+```{r}
+#p0 control; p1, p2 are treatments, p2 selected
+fct_PCS12 <- function(e1,e2,s1,s2,n1,n2,p0,p1,p2)
+{
+  s<-0
+  for(i in 0: min(n1,n1-e1))
+  {
+    for(j in 0 : min(n1,n1-s1))
+    {
+      for(k in 0 : (n1-1))
+      {
+        for(l in max(s1+j,0) : n1)
+        {
+          for(a in max(max(e1+i,k+1),i+e2-n2) : n1)
+          {
+            for(b in max(max(s1+j,0),s2+j-n2) : n1)
+            {
+              for(c in 0: min(n2, n2+a-i-e2))
+              {
+                for(d in 0 : min(n2, n2+b-s2-j))
+                {
+                  for(e in max(e2+i+c-a,0) : n2)
+                  {
+                    for(f in max(s2+j+d-b,0) : n2)
+                    {
+                       s <- s + joint_prob(i,j,n1,p0) * joint_prob(k,l,n1,p1) * joint_prob(a,b,n1,p2) * joint_prob(c,d,n2,p0) * joint_prob(e,f,n2,p2)
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  s
+}
+```  
+
+
+
+#function for k=2, PCS1-3 delta1=delta2, note shizi page 2-3
+```{r}
+#p0 control; p1, p2 are treatments, p2 selected
+fct_PCS13 <- function(e1,e2,s1,s2,n1,n2,p0,p1,p2)
+{
+  s<-0
+  for(i in 0: min(n1,n1-e1))
+  {
+    for(j in 0 : min(n1,n1-s1))
+    {
+      for(k in max(e1+i,0) : n1)
+      {
+        for(l in max(s1+j,0) : n1)
+        {
+          
+          {
+            for(b in max(max(s1+j,0),s2+j-n2) : n1)
+            {
+              for(c in 0: min(n2, n2+k-i-e2))
+              {
+                for(d in 0 : min(n2, n2+b-s2-j))
+                {
+                  for(e in max(e2+i+c-k,0) : n2)
+                  {
+                    for(f in max(s2+j+d-b,0) : n2)
+                    {
+                       s <- s + joint_prob(i,j,n1,p0) * joint_prob(k,l,n1,p1) * joint_prob(k,b,n1,p2) * joint_prob(c,d,n2,p0) * joint_prob(e,f,n2,p2)
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  s/2
+}
+```  
+
+
+
+
+#PCS1=PCS11+PCS12+PCS13
+```{r}
+#p0 control; p1, p2 are treatments, p2 selected
+fct_PCS1 <- function(e1,e2,s1,s2,n1,n2,p0,p1,p2)
+{
+  fct_PCS11(e1,e2,s1,s2,n1,n2,p0,p1,p2)+fct_PCS12(e1,e2,s1,s2,n1,n2,p0,p1,p2)+fct_PCS13(e1,e2,s1,s2,n1,n2,p0,p1,p2)
+}
+```
+
+
+#test
+```{r}
+fct_PCS1(r1,r2,t1,t2,n1,n2,p0,p1,p2)
+```
+
+simulation check exact run time
+normal approximation

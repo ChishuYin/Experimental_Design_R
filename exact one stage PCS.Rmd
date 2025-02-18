@@ -1,0 +1,818 @@
+---
+title: "exact one stage PCS"
+output: html_document
+date: "2024-03-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#recursion
+```{r}
+factorial <- function(n) {
+  if (n <= 1) {
+    return(1)
+  } else {
+    return(n * factorial(n - 1))
+  }
+}
+
+# 测试函数
+print(factorial(5))  # 应该返回 120
+
+```
+
+
+#Prepare
+```{r}
+a <- function(pr,pt,fi)
+{
+  1+(fi-1)*(pr+pt)
+}
+
+b <- function(pr,pt,fi)
+{
+  -4*fi*(fi-1)*pr*pt
+}
+
+##
+prob <- function(pr,pt,fi)
+{
+  if(fi==1)
+  {
+    p<-c(pr*pt,pr-pr*pt,pt-pr*pt,1-pr-pt+pr*pt)
+    p
+  }
+  else{
+  a<- 1+(fi-1)*(pr+pt)
+  b <- -4*fi*(fi-1)*pr*pt
+  p <- matrix(nrow = 2, ncol = 2)
+  p[1,1] <- round(( a - ( a^2+b )^(0.5) ) / (2*(fi-1)),digits = 4)
+  p[1,2] <- round(pr-p[1,1],digits = 4)
+  p[2,1] <- round(pt-p[1,1],digits = 4)
+  p[2,2] <- round(1 - p[1,1] - p[1,2] - p[2,1],digits = 4)
+  p <- c(p[1,1],p[1,2],p[2,1],p[2,2])
+  p}
+}
+```
+
+
+
+#Test prepare
+```{r}
+n<-5
+e<-1
+s<-1  
+
+p_e0<-0.7
+p_s0<-0.7
+delta_e2<-0.2
+delta_s2<-0.2
+delta_e1<-0.05
+delta_s1<-0.05
+
+
+
+    p_e<- c(p_e0,p_e0+delta_e1, p_e0+delta_e2)
+    p_s<- c(p_s0,p_s0+delta_s1, p_s0+delta_s2)
+    
+    k<- length(p_e) -1
+    phi <- 2
+
+    p<- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p [i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+    
+    
+```
+
+
+
+$P(Xr=xr,Xt=xt)$
+```{r}
+#P(Xr=xr,Xt=xt)
+joint_prob <- function(xr,xt,n1,p)
+{
+  sum <- 0
+  for(i in max(0,xr+xt-n1) : min(xr,xt))
+  {
+    if(i<0 || xr-i<0 || xt-i<0 || n1-xr-xt+i<0)
+    {
+      sum<-sum+0
+    }
+    else{
+    x <- c( i , xr-i , xt-i , n1-xr-xt+i )
+    sum <- sum + dmultinom(x, size = NULL, prob = p, log = FALSE)
+    ##cat("s = ", sum,"x =", x, "\n")
+    }
+  }
+  sum
+}
+
+joint_prob(0,0,5,p[1,])
+```
+optimized $P(Xr=xr,Xt=xt)$ function
+```{r}
+joint_prob <- function(xr, xt, n1, p) {
+    start <- max(0, xr + xt - n1)
+    end <- min(xr, xt)
+    
+    # 初始化累加器
+    sum <- 0
+
+    for (i in start:end) {
+        x <- c(i, xr - i, xt - i, n1 - xr - xt + i)
+        sum <- sum + dmultinom(x, prob = p)
+    }
+    
+    return(sum)
+}
+joint_prob(0,0,5,p[1,])
+```
+
+
+$P(a<=X_e<=b,c<=X_s<=d)$
+```{r}
+cumu_joint_pron<-function(a,b,c,d,n,p)
+{
+  if(a>b || c>d)
+  {
+    return(0)
+  }
+  else{
+  s<-0
+  for(i in a:b)
+  {
+    for(j in c:d)
+    {
+      s<-s+joint_prob(i,j,n,p)
+    }
+  }
+  return(s)}
+}
+
+
+```
+
+$P(a<=X_e<=b,c<=X_s<=d)$
+```{r}
+cumu_joint_pron <- function(a, b, c, d, n, p) {
+    if (a > b || c > d) {
+        return(0)
+    } else {
+        # 生成所有 (i, j) 对的组合
+        grid <- expand.grid(i = a:b, j = c:d)
+
+        # 使用 apply 函数计算每对 (i, j) 的 joint_prob 并求和
+        sum(apply(grid, 1, function(row) joint_prob(row[1], row[2], n, p)))
+    }
+}
+
+
+```
+
+#simulation for cumu_joint_prob
+```{r}
+a<-2
+b<-2
+c<-2
+d<-3
+n<-5
+pi<-p[1,]
+
+NN<-100
+result<-seq(0,0,length=NN)
+
+for(j in  1:NN)
+{
+ss<-0
+N<-1000
+
+x0<-rmultinom(N,n,pi)
+
+
+
+
+for( i in 1:N)
+{
+  if( ((x0[1,i]+x0[2,i]))>=a & ((x0[1,i]+x0[2,i]))<=b & ((x0[1,i]+x0[3,i]))>=c & ((x0[1,i]+x0[3,i]))<=d )
+  {
+    ss<-ss+1
+  }
+
+}
+result[j]<-ss/N
+}
+
+summary(result)
+cumu_joint_pron(a,b,c,d,5,pi)
+cumu_joint_pron(6,5,6,5,5,pi)
+```
+
+
+
+#PCS1 under GLFC
+#M_k
+```{r}
+M_k <- function(i,j,a,b,n,e,s,pi,k)
+{
+  ss<-0
+  for(m in 1:k)
+  {
+    if(a==e+i)
+      {
+        ss<- ss+ (1/m) *  cumu_joint_pron(a,a,max(s+j,0),n,n,pi)^(m-1) * (1- cumu_joint_pron(max(e+i,0),n,max(s+j,0),n,n,pi) )^(k-m)
+    }
+    else if(a>=e+i+1)
+    {
+     for(c in 0:(m-1))
+      {
+          ss<-ss+ (1/(c+1)) *choose(m-1,c) * cumu_joint_pron(a,a,max(s+j,0),n,n,pi)^c * cumu_joint_pron(max(e+i,0),a-1,max(s+j,0),n,n,pi)^(m-c-1) *( 1- cumu_joint_pron(max(e+i,0),n,max(s+j,0),n,n,pi) )^(k-m)
+
+      }
+    }
+  }
+  ss
+}
+
+
+```
+
+
+
+
+
+
+#M_k event new function 
+```{r}
+#i: number of efficacy for pi_0, j:number of safety for pi_0, a\b are number of efficacy\safety for pi_k,pi is the probabilities for pi_i (0<i<k)
+M_k <- function(i,j,a,b,n,e,s,pi,k)
+{
+  ss<-0
+  term1 <- cumu_joint_pron(a,a,s+j,n,n,pi)
+  term2<- (1- cumu_joint_pron(e+i,n,s+j,n,n,pi) )
+  term3 <- cumu_joint_pron(e+i,a-1,s+j,n,n,pi)
+  
+  
+  for(m in 1:k)
+  {
+    if(a==e+i)
+      {
+        ss<- ss+ (1/m) *  term1^(m-1) * term2^(k-m)
+    }
+    else if(a>=e+i+1)
+    {
+      
+     ss <-ss+ sum(sapply(0:(m-1), function(c) {
+        (1/(c+1)) * choose(m-1, c) * term1^c * term3^(m-c-1) * term2^(k-m)
+      }))
+    }
+  }
+  ss
+}
+
+
+
+M_k <- function(i,j,a,b,n,e,s,pi,k)
+{
+  ss<-0
+  term1 <- cumu_joint_pron(a,a,s+j,n,n,pi)
+  term2<- (1- cumu_joint_pron(e+i,n,s+j,n,n,pi) )
+  term3 <- cumu_joint_pron(e+i,a-1,s+j,n,n,pi)
+  
+  if(a==e+i)
+  {
+    ss <- sum(sapply(1:k, function(m){
+      (1/m) *  term1^(m-1) * term2^(k-m)
+    })) 
+  }
+  else if(a>=e+i+1)
+  {
+    ss <- sum(sapply(1:k, function(m){
+      inner_sum <- sum(sapply(0:(m-1), function(c){
+        (1/(c+1)) * choose(m-1, c) * term1^c * term3^(m-c-1) * term2^(k-m)
+      }))
+      inner_sum
+    }))
+  }
+  ss
+}
+
+```
+
+
+
+#simulation for M_k
+```{r}
+ii<-11
+jj<-11
+a<-15
+b<-17
+n<-25
+e<-0
+s<-0
+pi<-p[1,]
+k<-2
+
+
+
+
+NN<-100
+result<-seq(0,0,length=NN)
+
+for(j in  1:NN)
+{
+ss<-0
+N<-10000
+
+x0<-rmultinom(N,n,pi)
+
+
+
+
+for( i in 1:N)
+{
+     if(a>=(e+ii) & b>=(s+jj))
+  {
+      if( ((x0[1,i]+x0[2,i]))>=(e+ii) & ((x0[1,i]+x0[2,i]))<=(a-1) & ((x0[1,i]+x0[3,i]))>=(s+jj)  )
+      {
+        ss<-ss+1
+      }
+      else if( ((x0[1,i]+x0[2,i]))<(e+ii)  || ((x0[1,i]+x0[3,i]))<s+jj )
+      {
+        ss<-ss+1
+      }
+      else if(  ((x0[1,i]+x0[2,i]))==(a) & ((x0[1,i]+x0[3,i]))>=(s+jj)  )
+      {
+        ss<-ss+0.5
+      }
+  }
+
+}
+result[j]<-ss/N
+}
+
+summary(result)
+M_k(ii,jj,a,b,n,e,s,pi,k)
+```
+
+
+
+
+
+#PCS1 under GLFC
+```{r}
+#assume e,s >= 0
+
+pcs1_lfc <- function(n,e,s,p0,pi,pk,k)
+{
+  ss<-0
+  for(i in 0:n)
+  {
+    for(j in 0:n)
+    {
+      for(a in 0:n)
+      {
+        for(b in 0:n)
+        {
+          if((a-i>=e)&(b-j>=s))
+          {
+            ss<-ss+joint_prob(i,j,n,p0)*joint_prob(a,b,n,pk)* M_k(i,j,a,b,n,e,s,pi,k)
+          }
+        }
+      }
+    }
+  }
+  ss
+}
+start<-Sys.time()
+pcs1_lfc(10,e,s,p[1,],p[2,],p[3,],k)
+end<-Sys.time()
+end-start
+pcs1_lfc <- function(n, e, s, p0, pi, pk, k) {
+  ss <- 0
+  
+  # 缓存可能重复计算的结果
+  jp_cache <- array(dim = c(n+1, n+1, 2))
+  for (i in 0:(n)) {
+    for (j in 0:(n)) {
+      jp_cache[i+1, j+1, 1] <- joint_prob(i, j, n, p0)
+      jp_cache[i+1, j+1, 2] <- joint_prob(i, j, n, pk)
+    }
+  }
+  
+  for (i in 0:(n-e)) {
+    for (j in 0:(n-s)) {
+      for (a in (i+e):n) {
+        for (b in (j+s):n) {
+          ss <- ss + jp_cache[i+1, j+1, 1] * jp_cache[a+1, b+1, 2] * M_k(i, j, a, b, n, e, s, pi, k)
+        }
+      }
+    }
+  }
+  ss
+}
+start<-Sys.time()
+pcs1_lfc(10,e,s,p[1,],p[2,],p[3,],k)
+end<-Sys.time()
+end-start
+
+
+
+```
+
+```{r}
+pcs1_lfc <- function(n,e,s,p0,pi,pk,k)
+{
+  ss<-0
+  for(i in 0:n)
+  {
+    for(j in 0:n)
+    {
+      for(a in 0:n)
+      {
+        for(b in 0:n)
+        {
+          if((a-i>=e)&(b-j>=s))
+          {
+            ss<-ss+joint_prob(i,j,n,p0)*joint_prob(a,b,n,pk)* M_k(i,j,a,b,n,e,s,pi,k)
+          }
+        }
+      }
+    }
+  }
+  ss
+}
+```
+
+
+
+
+#Test prepare
+```{r}
+n<-5
+e<--1
+s<--2
+
+p_e0<-0.7
+p_s0<-0.62
+delta_e2<-0.1
+delta_s2<-0.1
+delta_e1<-0.1
+delta_s1<-0.1
+delta_e0<-0.0
+delta_s0<-0.0
+
+  
+    p_e0_list<-c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8)
+
+    p_e<- c(p_e0,p_e0-delta_e1+delta_e2, p_e0+delta_e2)
+    p_s<- c(p_s0,p_s0-delta_s1+delta_s2, p_s0+delta_s2)
+    
+    k<- length(p_e) -1
+    phi_list <-c(0,0.1,1,2,10,100,1000,1000000)
+    p<- matrix(data=NA,nrow = k+1,ncol=4)
+
+    
+     
+    
+    
+    
+    for(phi in phi_list)
+    { 
+      p_e<- c(0.4,0.5, 0.6)
+      p_s<- c(0.4,0.5, 0.6)
+      for(i in 1: (k+1))
+      { 
+       p [i,] <- prob(p_e[i],p_s[i],phi)
+      }
+      
+      cc<-pcs1_lfc(n,e,s,p[1,],p[2,],p[3,],k)
+      
+      print(p)
+      print(cc)
+    }
+    
+   
+```
+
+
+
+
+#PCS1 vs k
+```{r}
+N<-20
+result<-seq(0,0,length=N-1)
+for(k in 2:N)
+{
+result[k-1]<-pcs1_lfc(5,e,s,p[1,],p[2,],p[3,],k)}
+plot(c(2:N),result)
+```
+
+
+#save time pcs1
+```{r}
+library(parallel)
+
+pcs1_lfc <- function(n, e, s, p0, pi, pk, k) {
+    # 确定并行使用的核心数，通常设为机器核心数的一半到全部，视任务和资源而定
+    numCores <- detectCores() /2
+    cl <- makeCluster(numCores)
+    
+    # 确保所有变量都已定义并且可以在并行环境中使用
+  environmentVars <- list(joint_prob = joint_prob, cumu_joint_pron=cumu_joint_pron,M_k = M_k, n = n, e = e, s = s, p0 = p0, pi = pi, pk = pk, k = k)
+  
+  # 检查变量 'pk' 是否存在
+  if(!exists("pk")) {
+    stop("Variable 'pk' not found in the environment")
+  }
+
+  # 导出变量到并行工作节点
+  clusterExport(cl, varlist = names(environmentVars), envir = environment())
+
+    # 导出全局变量和函数到各个并行工作节点
+    # 确保同时导出所有需要的函数和变量
+   # clusterExport(cl, varlist = c("joint_prob", "M_k", "cumu_joint_pron", "n", "e", "s", "p0", "pi", "pk", "k"))
+
+    # 使用 parSapply 或其他并行apply函数来并行处理
+    ss <- sum(parSapply(cl, 0:(n-e), function(i) {
+        innerSum <- 0
+        for (j in 0:(n-s)) {
+            for (a in (i+e):n) {
+                for (b in (j+s):n) {
+                    innerSum <- innerSum + joint_prob(i, j, n, p0) * joint_prob(a, b, n, pk) * M_k(i, j, a, b, n, e, s, pi, k)
+                }
+            }
+        }
+        innerSum
+    }))
+
+    stopCluster(cl)
+    ss
+}
+start<-Sys.time()
+pcs1_lfc(30 ,e,s,p[1,],p[2,],p[3,],k)
+end<-Sys.time()
+end-start
+```
+
+
+#Test
+```{r}
+k<-2
+n<-15
+e<-1
+s<-1
+start<-Sys.time()
+pcs1_lfc(n,e,s,p[1,],p[2,],p[3,],k)
+end<-Sys.time()
+end-start
+
+test_k2_pcs1 <-function(n,e,s,p0,pi,pk)
+{
+  sum<-0
+  for(i in 0:n)
+  {
+    for(j in 0:n)
+    {
+      for(k in 0:n)
+      {
+        for(l in 0:n)
+        {
+          for(a in 0:n)
+          {
+            for(b in 0:n)
+            {
+              if(a-i>=e & b-j>=s)
+              {
+                if(k==a &l-j>=s)
+                {
+                  sum<-sum+ 0.5*joint_prob(i,j,n,p0) * joint_prob(a,b,n,pk) * joint_prob(k,l,n,pi)
+                }
+                else if(k-i>=e & k<a & l-j>=s)
+                {
+                  sum <- sum+joint_prob(i,j,n,p0) * joint_prob(a,b,n,pk) * joint_prob(k,l,n,pi)
+                }
+                else if(k-i<e || l-j<s)
+                {
+                  sum <- sum+joint_prob(i,j,n,p0) * joint_prob(a,b,n,pk) * joint_prob(k,l,n,pi)
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  sum
+}
+start<-Sys.time()
+test_k2_pcs1(n,e,s,p[1,],p[2,],p[3,])
+end<-Sys.time()
+end-start
+
+```
+
+```{r}
+#simulation
+n1<-n
+r1<-e
+t1<-s
+NN<-100
+result<-seq(0,0,length=NN)
+
+for(j in  1:NN)
+{
+ss<-0
+N<-10000
+
+x0<-rmultinom(N,n1,p[1,])
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p[2,])
+x2<-rmultinom(N,n1,p[3,])
+
+
+
+for( i in 1:N)
+{
+  if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1  )
+  {
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) < t1 )
+    {
+      ss<-ss+1
+    }
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]> x1[1,i]+x1[2,i])
+    {
+      ss<-ss+1
+    }
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]== x1[1,i]+x1[2,i])
+    {
+      ss<-ss+1/2
+    }
+  }
+
+}
+result[j]<-ss/N
+}
+
+summary(result)
+```
+
+
+
+
+
+#PCS0 general exact function
+#Test prepare
+```{r}
+n<-5
+e<--1
+s<--1  
+
+p_e0<-0.7
+p_s0<-0.7
+delta_e2<-0.2
+delta_s2<-0.2
+delta_e1<-0.05
+delta_s1<-0.05
+
+
+
+    p_e<- c(p_e0,p_e0+delta_e1, p_e0+delta_e2)
+    p_s<- c(p_s0,1, p_s0+delta_s2)
+    
+    p_e<- c(p_e0,1, p_e0+delta_e2)
+    p_s<- c(p_s0,p_s0+delta_s1, p_s0+delta_s2)
+    
+    k<- length(p_e) -1
+    phi <- 2
+
+    p<- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p [i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+    
+    
+```
+
+
+#PCS0 general exact function
+```{r}
+pcs0_general <-function(n,e,s,p,k)
+{
+  ss<-0
+  for( i in 0:n )
+  {
+    for(j in 0:n)
+    {
+      product<-joint_prob(i,j,n,p[1,])
+      for(jj in 2:(k+1))
+      {
+        product<-product*(1- cumu_joint_pron(max(e+i,0),n,max(s+j,0),n,n,p[jj,])  )
+      }
+      ss<-ss+product
+    }
+  }
+  ss
+}
+
+#lfc1: p_e^j <= pe0+ delta_e1 and p_s^j <= ps0+ delta_s1 
+pcs0_lfc1 <- function(n,e,s,p0,pj,k)
+{
+  ss<-0
+  for( i in 0:n )
+  {
+    for(j in 0:n)
+    {
+      ss<-ss+joint_prob(i,j,n,p0)*(1- cumu_joint_pron(max(e+i,0),n,max(s+j,0),n,n,pj))^(k)
+    }
+  }
+  ss
+}
+
+
+
+#lfc2: p_e^j <= pe0+ delta_e1 or p_s^j <= ps0+ delta_s1,assume pej=1
+pcs0_lfc2e <- function(n,e,s,p0,pj,k)
+{
+  ss<-0
+  for( j in 0:n )
+  {
+      ss<-ss+dbinom(j,n,p0[1]+p0[3])*(pbinom(s+j-1,n,pj[1]+pj[3]))^(k)
+  }
+  ss
+}
+p[3,]<-p[2,]
+pcs0_general(n,e,s,p,k)
+pcs0_lfc1(n,e,s,p[1,],p[2,],k)
+pcs0_lfc2e(n,e,s,p[1,],p[2,],k)
+```
+
+
+#Test prepare
+```{r}
+n<-14
+e<--1
+s<--2  
+
+p_e0<-0.8
+p_s0<-0.8
+delta_e2<-0.2
+delta_s2<-0.2
+delta_e1<-0.15
+delta_s1<-0.15
+delta_e0<-0.05
+delta_s0<-0.05
+
+
+
+    p_e<- c(p_e0,p_e0+delta_e0, p_e0+delta_e0)
+    p_s<- c(p_s0,p_s0+delta_s0, p_s0+delta_s0)
+    
+    k<- length(p_e) -1
+    phi_list <-c(0,0.1,1,2,10,100,1000)
+    p<- matrix(data=NA,nrow = k+1,ncol=4)
+
+    
+     phi<-0
+     for(i in 1: (k+1))
+      { 
+       p [i,] <- prob(p_e[i],p_s[i],phi)
+      }
+    pcs0_lfc1(n,e,s,p[1,],p[2,],k)
+    
+    
+    
+    for(phi in phi_list)
+    {
+      for(i in 1: (k+1))
+      { 
+       p [i,] <- prob(p_e[i],p_s[i],phi)
+      }
+      
+      cc<-pcs0_lfc1(14,e,s,p[1,],p[2,],k)
+      print(cc)
+      print(phi)
+    }
+   
+```
+
+
+
+
+
+
+
+
+
+
+

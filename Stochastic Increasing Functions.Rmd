@@ -1,0 +1,114 @@
+---
+title: "SI function"
+author: "Chishu Yin"
+date: "2022/11/3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#P(Xr=xr,Xt=xt)
+joint_prob <- function(xr,xt,n1,p)
+{
+  sum <- 0
+  for(i in max(0,xr+xt-n1) : min(xr,xt))
+  {
+    x <- c( i , xr-i , xt-i , n1-xr-xt+i )
+    sum <- sum + dmultinom(x, size = NULL, prob = p, log = FALSE)
+    ##cat("s = ", sum,"x =", x, "\n")
+  }
+  sum
+}
+
+
+```
+
+
+#prob
+```{r}
+a <- function(pr,pt,fi)
+{
+  1+(fi-1)*(pr+pt)
+}
+
+b <- function(pr,pt,fi)
+{
+  -4*fi*(fi-1)*pr*pt
+}
+
+##p11,p12,p21,p22
+prob <- function(pr,pt,fi)
+{
+  a<- 1+(fi-1)*(pr+pt)
+  b <- -4*fi*(fi-1)*pr*pt
+  p <- matrix(nrow = 2, ncol = 2)
+  p[1,1] <- round(( a - ( a^2+b )^(0.5) ) / 2*(fi-1),digits = 4)
+  p[1,2] <- round(pr-p[1,1],digits = 4)
+  p[2,1] <- round(pt-p[1,1],digits = 4)
+  p[2,2] <- round(1 - p[1,1] - p[1,2] - p[2,1],digits = 4)
+  p <- c(p[1,1],p[1,2],p[2,1],p[2,2])
+  p
+}
+
+
+
+
+p_e0<-0.5
+p_s0<-0.5
+delta_e2 <- 0.1
+delta_s2 <- 0.1
+p_e<- c(p_e0,p_e0,p_e0+delta_e2)
+p_s<- c(p_s0,1, p_s0 + delta_s2)
+
+p_e<- c(p_e0,1,p_e0+delta_e2)
+p_s<- c(p_s0,p_s0, p_s0 + delta_s2)
+
+p_e<- c(p_e0,runif(1),p_e0+delta_e2)
+p_s<- c(p_s0,runif(1,min = 0,max = p_s0), p_s0 + delta_s2)
+
+#p_e<- c(p_e0,runif(1,min = 0,max = p_e0),p_e0+delta_e2)
+#p_s<- c(p_s0,runif(1,min = 0,max = 1), p_s0 + delta_s2)
+
+
+#p_e<- c(p_e0,0,p_e0+delta_e2)
+#p_s<- c(p_s0,0, p_s0 + delta_s2)
+
+k<- length(p_e) -1
+phi <- 2
+
+p <- matrix(data=NA,nrow = k+1,ncol=4)
+
+for(i in 1: (k+1))
+{
+  p[i,] <- prob(p_e[i],p_s[i],phi)
+}
+p
+
+```
+
+
+```{r}
+n<-10 #sample size
+N<-10
+pe<-seq(0,1,length.out=N)
+mar_prob <- matrix(data=NA,nrow = N,ncol = (n+1))
+cumu_prob <- matrix(data = NA, nrow = N, ncol = (n+1))
+ps<-0.5
+#for(i in 1:(n+1))
+#{
+  xs<-2
+  for(j in 1:N)
+  {
+    for(k in 1:(n+1))
+    {
+      mar_prob[j,k] <- joint_prob((k-1),xs,n,prob(pe[j],ps,2))
+      cumu_prob[j,k] <- sum(mar_prob[j,c(1:k)])
+    }
+  }
+#}
+  cumu_prob 
+```
+

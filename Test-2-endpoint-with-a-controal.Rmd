@@ -1,0 +1,454 @@
+---
+title: 'Research: Testing 2 endpoint with a control'
+author: "Chishu Yin"
+date: "10/25/2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+a <- function(pr,pt,fi)
+{
+  1+(fi-1)*(pr+pt)
+}
+
+b <- function(pr,pt,fi)
+{
+  -4*fi*(fi-1)*pr*pt
+}
+
+##p11,p12,p21,p22
+prob <- function(pr,pt,fi)
+{
+  if(fi==1)
+  {
+    p<-c(pr*pt,pr-pr*pt,pt-pr*pt,1-pr-pt+pr*pt)
+    p
+  }
+  else{
+  a<- 1+(fi-1)*(pr+pt)
+  b <- -4*fi*(fi-1)*pr*pt
+  p <- matrix(nrow = 2, ncol = 2)
+  p[1,1] <- round(( a - ( a^2+b )^(0.5) ) / (2*(fi-1)),digits = 4)
+  p[1,2] <- round(pr-p[1,1],digits = 4)
+  p[2,1] <- round(pt-p[1,1],digits = 4)
+  p[2,2] <- round(1 - p[1,1] - p[1,2] - p[2,1],digits = 4)
+  p <- c(p[1,1],p[1,2],p[2,1],p[2,2])
+  p}
+}
+```
+
+
+$$\vec{X}=\begin{pmatrix}
+X_{11}\\ 
+X_{12}\\ 
+X_{21}\\ 
+X_{22}
+\end{pmatrix}\sim Multinomail(n_1,\vec{p_1}=\begin{pmatrix}
+p_{11}\\ 
+p_{12}\\ 
+p_{21}\\ 
+p_{22}
+\end{pmatrix})$$
+
+$$\vec{Y}=\begin{pmatrix}
+Y_{11}\\ 
+Y_{12}\\ 
+Y_{21}\\ 
+Y_{22}
+\end{pmatrix}\sim Multinomail(n_1,\vec{p_2}=\begin{pmatrix}
+p_{c11}\\ 
+p_{c12}\\ 
+p_{c21}\\ 
+p_{c22}
+\end{pmatrix})$$
+
+$$X_{11}+X_{12}+X_{21}+X_{22}=n_{1}$$
+$$Y_{11}+Y_{12}+Y_{21}+Y_{22}=n_{1}$$
+
+
+Response=$X_{11}+X_{12}$
+Toxicity=$X_{11}+X_{21}$
+
+Suppose $r_1\geq0,t_1\geq0$
+
+
+
+
+
+
+Want the function $P(X_{11}+X_{12}-(Y_{11}+Y_{12})=r_1,X_{11}+X_{21}-(Y_{11}+Y_{21})=t_1)$
+
+```{r}
+multibin_prob<-function(r1,t1,n1,p1,p2)
+{
+
+  summ<-0
+  for (i in 0:(n1-r1)) {
+    for(j in 0:max(r1+i,0)){
+      for(k in 0:i){
+        for(l in 0:min(n1-i,n1+j-k-t1-i-r1)){
+          if(l<0 | (r1+i-j)<0 | (t1+k-j+l)<0 | (n1-j-(r1+i-j)-(t1+k-j+l))<0 | (n1-k-(i-k)-(l))<0){next}
+          else{
+          x <- c( (j) , (r1+i-j) , (t1+k-j+l) , (n1-j-(r1+i-j)-(t1+k-j+l) ))
+          #print(x)
+          #print(c(i,j,k,l,00000))
+          y <- c( k , i-k, l , (n1-k-(i-k)-(l)) )
+          #print(y)
+          summ <- summ + dmultinom(x, size = NULL, prob = p1, log = FALSE)*dmultinom(y, size = NULL, prob = p2, log = FALSE)
+        
+        }}
+      }
+    }
+    
+  }
+ summ
+}
+
+multibin_prob(3,-1,17,c(0.2815, 0.6185, 0.0185, 0.0815), c(0.2384, 0.4616, 0.0616, 0.2384))
+
+```
+
+#simulation for the above function
+```{r}
+set.seed(11)
+n1<-17
+r1<-3
+t1<--1
+N<-100000
+p1<-c(0.2815, 0.6185, 0.0185, 0.0815)
+p2<-c(0.2384, 0.4616, 0.0616, 0.2384)
+x<-rmultinom(N,n1,p1)
+y<-rmultinom(N,n1,p2)
+s<-0
+for(i in 1:N)
+{
+  if( (x[1,i]+x[2,i]-(y[1,i]+y[2,i]))==r1 & (x[1,i]+x[3,i]-(y[1,i]+y[3,i]))==t1 )
+  {s<-s+1}
+}
+s/N
+```
+
+
+
+$P(X_{r1}-Y_{r1}\geq r_1, X_{t1}-Y_{t1}<t_1, X_{r1}+X_{r2}-(Y_{r1}+Y_{r2})\geq r_2, X_{t1}+X_{t2}-(Y_{t1}+Y_{t2})<t_2 | \vec{p_1},\vec{p_2})$
+#want the function above
+```{r}
+#i for deta r1, j for detq t1, k for detq r2, l for deta t2
+cumu_multinomail_prob<- function(n1,n2,r1,r2,t1,t2,p1,p2)
+{
+  s<-0
+  sum<-0
+  for(i in r1:n1)
+  {
+    for(j in (-n1):(t1-1))
+    {
+      for(k in (r2-i):n2)
+      {
+        for(l in (-n2):(t2-j-1))
+        {
+          #s<-s+ multibin_prob(k,l,n2,p1,p2)
+          s<-s+ multibin_prob(k,l,n2,p1,p2)*multibin_prob(i,j,n1,p1,p2)
+          #print(c(i,j,k,l,multibin_prob(i,j,n1,p1,p2),multibin_prob(k,l,n2,p1,p2)))
+        }
+      }
+      #sum<-sum+ multibin_prob(i,j,n1,p1,p2)*s
+    }
+  }
+  s
+}
+
+cumu_multinomail_prob(4,10,0,2,2,5,c(0.2815, 0.6185, 0.0185, 0.0815),c(0.2384, 0.4616, 0.0616, 0.2384))
+```
+
+#simulation
+```{r}
+set.seed(1)
+n1<-4
+n2<-10
+r1<-0
+r2<-2
+t1<-2
+t2<-5
+N<-100000
+p1<-c(0.2815, 0.6185, 0.0185, 0.0815)
+p2<-c(0.2384, 0.4616, 0.0616, 0.2384)
+x1<-rmultinom(N,n1,p1)
+y1<-rmultinom(N,n1,p2)
+x2<-rmultinom(N,n2,p1)
+y2<-rmultinom(N,n2,p2)
+s<-0
+for(i in 1:N)
+{
+  
+  if( (x1[1,i]+x1[2,i]-(y1[1,i]+y1[2,i]))>=r1 & (x1[1,i]+x1[3,i]-(y1[1,i]+y1[3,i]))<t1  & (x1[1,i]+x1[2,i]+x2[1,i]+x2[2,i]-(y1[1,i]+y1[2,i]+y2[1,i]+y2[2,i]))>=r2 &  (x1[1,i]+x1[3,i]+x2[1,i]+x2[3,i]-(y1[1,i]+y1[3,i]+y2[1,i]+y2[3,i]))<t2 )
+  {
+    s<-s+1
+    #print(c((x1[1,i]+x1[2,i]-(y1[1,i]+y1[2,i])), (x1[1,i]+x1[3,i]-(y1[1,i]+y1[3,i])), (x1[1,i]+x1[2,i]+x2[1,i]+x2[2,i]-(y1[1,i]+y1[2,i]+y2[1,i]+y2[2,i])),  (x1[1,i]+x1[3,i]+x2[1,i]+x2[3,i]-(y1[1,i]+y1[3,i]+y2[1,i]+y2[3,i]))))
+  }
+}
+s/N
+```
+
+
+
+
+
+
+
+
+
+
+
+##Simulation LFC (delta_1=0
+```{r}
+a <- function(pr,pt,fi)
+{
+  1+(fi-1)*(pr+pt)
+}
+
+b <- function(pr,pt,fi)
+{
+  -4*fi*(fi-1)*pr*pt
+}
+
+##p11,p12,p21,p22
+prob <- function(pr,pt,fi)
+{
+  a<- 1+(fi-1)*(pr+pt)
+  b <- -4*fi*(fi-1)*pr*pt
+  p <- matrix(nrow = 2, ncol = 2)
+  p[1,1] <- round(( a - ( a^2+b )^(0.5) ) / 2*(fi-1),digits = 4)
+  p[1,2] <- round(pr-p[1,1],digits = 4)
+  p[2,1] <- round(pt-p[1,1],digits = 4)
+  p[2,2] <- round(1 - p[1,1] - p[1,2] - p[2,1],digits = 4)
+  p <- c(p[1,1],p[1,2],p[2,1],p[2,2])
+  p
+}
+```
+
+
+```{r}
+#set.seed(1)
+p_e0<-0.7
+p_s0<-0.8
+delta_e2 <- 0.1
+delta_s2 <- 0.1
+p_e<- c(p_e0,p_e0,p_e0+delta_e2)
+p_s<- c(p_s0,1, p_s0 + delta_s2)
+
+#p_e<- c(p_e0,1,p_e0+delta_e2)
+# p_s<- c(p_s0,p_s0, p_s0 + delta_s2)
+
+p_e<- c(p_e0,runif(1),p_e0+delta_e2)
+p_s<- c(p_s0,runif(1,min = 0,max = p_s0), p_s0 + delta_s2)
+
+#p_e<- c(p_e0,runif(1,min = 0,max = p_e0),p_e0+delta_e2)
+#p_s<- c(p_s0,runif(1,min = 0,max = 1), p_s0 + delta_s2)
+
+
+#p_e<- c(p_e0,0,p_e0+delta_e2)
+#p_s<- c(p_s0,0, p_s0 + delta_s2)
+
+k<- length(p_e) -1
+phi <- 2
+
+p <- matrix(data=NA,nrow = k+1,ncol=4)
+
+for(i in 1: (k+1))
+{
+  p[i,] <- prob(p_e[i],p_s[i],phi)
+}
+p
+
+
+n1<-4
+n2<-10
+r1<-1
+r2<-2
+t1<-0
+t2<-5
+N<-10000
+x0<-rmultinom(N,n1,p[1,])
+x<-matrix(data = NA,nrow = k, ncol = N)
+
+x1<-rmultinom(N,n1,p[2,])
+x2<-rmultinom(N,n1,p[3,])
+
+s<-0
+for(i in 1:N)
+{
+  
+  if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1)
+  {
+    if((x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))>=t1 & (x2[1,i]+x2[2,i]-(x1[1,i]+x1[2,i]))> 0)
+    {
+      s<-s+1
+    }
+    else if((x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))>=t1 & (x2[1,i]+x2[2,i]-(x1[1,i]+x1[2,i]))==0)
+    {
+      s<-s+1/k
+    }
+    else if((x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))<r1 | (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))<t1)
+    {
+      s<-s+1
+    }
+  }
+
+}
+s/N # 0.13115 0.2919
+```
+
+
+##Exact 1988 2 endpoint power function stage 1
+
+Want the function $P(X_{11}+X_{12}-(Y_{11}+Y_{12})=r_1,X_{11}+X_{21}-(Y_{11}+Y_{21})=t_1)$
+
+```{r}
+multibin_prob<-function(r1,t1,n1,p1,p2)
+{
+
+  summ<-0
+  for (i in 0:(n1-r1)) {
+    for(j in 0:max(r1+i,0)){
+      for(k in 0:i){
+        for(l in 0:min(n1-i,n1+j-k-t1-i-r1)){
+          if(l<0 | (r1+i-j)<0 | (t1+k-j+l)<0 | (n1-j-(r1+i-j)-(t1+k-j+l))<0 | (n1-k-(i-k)-(l))<0){next}
+          else{
+          x <- c( (j) , (r1+i-j) , (t1+k-j+l) , (n1-j-(r1+i-j)-(t1+k-j+l) ))
+          #print(x)
+          #print(c(i,j,k,l,00000))
+          y <- c( k , i-k, l , (n1-k-(i-k)-(l)) )
+          #print(y)
+          summ <- summ + dmultinom(x, size = NULL, prob = p1, log = FALSE)*dmultinom(y, size = NULL, prob = p2, log = FALSE)
+        
+        }}
+      }
+    }
+    
+  }
+ summ
+}
+
+multibin_prob(3,-1,17,c(0.2815, 0.6185, 0.0185, 0.0815), c(0.2384, 0.4616, 0.0616, 0.2384))
+
+```
+
+
+$P(Xe=r1,Xs>=t1)$
+```{r}
+cul_safe <-function(r1,t1,n1,p1,p2)
+{
+  s<-0
+  for(i in t1 : n1)
+  {
+    s<-s+multibin_prob(r1,i,n1,p1,p2)
+  }
+  s
+}
+
+cul_safe(r1,t1,n1,p[k+1,],p[1,])
+```
+
+
+
+#simulation
+```{r}
+s<-0
+for(i in 1:N)
+{
+  if((x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))==r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1)
+{
+  s<-s+1
+}
+}
+s/N
+```
+
+
+
+
+
+
+
+$P(r1<=Xe<=xe,Xs>=t1)$
+```{r}
+cul_eff_safe <- function(r1,xe,t1,n1,p1,p2)
+{
+  s<-0
+  for(i in r1:xe)
+  {
+    for(j in t1:n1)
+    {
+      s<-s+multibin_prob(i,j,n1,p1,p2)
+    }
+  }
+  s
+}
+cul_eff_safe(r1,n1,t1,n1,p[3,],p[1,])
+```
+
+$$P(Xe<r1 or Xs<t1) = 1 - P(Xe>=r1 , Xs>=t1) =1 - P(r1<=Xe<=n1 ,Xs>=t1) $$
+#simulation
+```{r}
+s<-0
+for(i in 1:N)
+{
+  if((x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))<=(n1) & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1)
+{
+  s<-s+1
+}
+}
+s/N
+
+s<-0
+for(i in 1:N)
+{
+  if((x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))<r1 | (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))<t1)
+{
+  s<-s+1
+}
+}
+s/N
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+s<-0
+for(i in 1:k)
+{
+  for(xe in (r1):n1)
+  {
+    if(xe==r1)
+      {
+        s<-s+(1/(i))*choose(i,j)*cul_safe(xe,t1,n1,p[k+1,],p[1,])*cul_safe(xe,t1,n1,p[2,],p[1,])^(i-1)  *(1 - cul_eff_safe(r1,n1,t1,p[2,],p[1,]))^(k-i)
+    }
+    else{
+    for(j in 0:(i-1))
+    {
+      
+      
+      s<-s+(1/(j+1))*choose(i,j)*cul_safe(xe,t1,n1,p[k+1,],p[1,])*cul_safe(xe,t1,n1,p[2,],p[1,])^j *cul_eff_safe(r1,xe-1,t1,p[2,],p[1,])^(i-j-1) *(1 - cul_eff_safe(r1,n1,t1,p[2,],p[1,]))^(k-i)
+
+    }
+    }
+  }
+}
+s
+```
+
+
+

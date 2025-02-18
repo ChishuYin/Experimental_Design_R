@@ -1,0 +1,352 @@
+---
+title: "Untitled"
+author: "Chishu Yin"
+date: "2023/10/17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+a <- function(pr,pt,fi)
+{
+  1+(fi-1)*(pr+pt)
+}
+
+b <- function(pr,pt,fi) 
+{
+  -4*fi*(fi-1)*pr*pt
+}
+
+##p11,p12,p21,p22
+prob <- function(pr,pt,fi)
+{
+  if(fi==1)
+  {
+    p<-c(pr*pt,pr-pr*pt,pt-pr*pt,1-pr-pt+pr*pt)
+    p
+  }
+  else{
+  a<- 1+(fi-1)*(pr+pt)
+  b <- -4*fi*(fi-1)*pr*pt
+  p <- matrix(nrow = 2, ncol = 2)
+  p[1,1] <- round(( a - ( a^2+b )^(0.5) ) / (2*(fi-1)),digits = 4)
+  p[1,2] <- round(pr-p[1,1],digits = 4)
+  p[2,1] <- round(pt-p[1,1],digits = 4)
+  p[2,2] <- round(1 - p[1,1] - p[1,2] - p[2,1],digits = 4)
+  p <- c(p[1,1],p[1,2],p[2,1],p[2,2])
+  p}
+}
+```
+
+$P(Xr=xr,Xt=xt)$
+```{r}
+#P(Xr=xr,Xt=xt)
+joint_prob <- function(xr,xt,n1,p)
+{
+  sum <- 0
+  for(i in max(0,xr+xt-n1) : min(xr,xt))
+  {
+    if(i<0 | xr-i<0 | xt-i<0 | n1-xr-xt+i<0)
+    {
+      sum<-sum+0
+    }
+    else{
+    x <- c( i , xr-i , xt-i , n1-xr-xt+i )
+    sum <- sum + dmultinom(x, size = NULL, prob = p, log = FALSE)
+    ##cat("s = ", sum,"x =", x, "\n")
+    }
+  }
+  sum
+}
+```
+
+
+#Find position of pe0, ps0
+```{r}
+p_e0<-0.5
+p_s0<-0.5
+delta_e2<-0.4
+delta_s2<-0.4
+delta_e1<-0.4
+delta_s1<-0.4
+
+p_e<- c(p_e0,p_e0+delta_e1-delta_e2, p_e0+delta_e1)
+p_s<- c(p_s0,p_s0+delta_s1-delta_s2, p_s0+delta_s1)
+```
+
+
+```{r}
+ee<-seq(0,1-delta_e1,length.out=61)
+ss<-seq(0,1-delta_s1,length.out=61)
+
+result<- matrix(data = NA, nrow = 61, ncol = 61)
+
+for(mm in 1:61)
+{
+  for(kk in 1:61)
+  {
+    p_e<- c(ee[kk],ee[kk]+delta_e1-delta_e2, ee[kk]+delta_e1)
+    p_s<- c(ss[mm],ss[mm]+delta_s1-delta_s2, ss[mm]+delta_s1)
+    
+    k<- length(p_e) -1
+    phi <- 1
+
+    p <- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p[i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+n1<-10
+n2<-10
+r1<-1
+r2<-2
+t1<-1
+t2<-2
+N<-10000
+x0<-rmultinom(N,n1,p[1,])
+x<-matrix(data = NA,nrow = k, ncol = N)
+
+x1<-rmultinom(N,n1,p[2,])
+x2<-rmultinom(N,n1,p[3,])
+
+s<-0
+for(i in 1:N)
+{
+  
+  if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1)
+  {
+    if((x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))>=t1 & (x2[1,i]+x2[2,i]-(x1[1,i]+x1[2,i]))> 0)
+    {
+      s<-s+1
+    }
+    else if((x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))>=t1 & (x2[1,i]+x2[2,i]-(x1[1,i]+x1[2,i]))==0)
+    {
+      s<-s+1/k
+    }
+    else if((x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))<r1 | (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))<t1)
+    {
+      s<-s+1
+    }
+  }
+
+}
+result[mm,kk]<-s/N
+    
+    
+  }
+}
+
+
+
+```
+
+
+```{r}
+which.min(result)
+result[3600]
+result[1]
+PCS<-result
+p_s2<-ss
+p_e2<-ee
+persp(p_s2,p_e2,PCS)
+
+plot(p_e2,result[1,])
+plot(p_e2,result[2,])
+plot(p_e2,result[3,])
+plot(p_e2,result[4,])
+plot(p_e2,result[15,])
+plot(p_e2,result[16,])
+plot(p_e2,result[21,])
+plot(p_e2,result[22,])
+plot(p_e2,result[29,])
+plot(p_e2,result[30,])
+
+plot(p_s2,result[,1])
+plot(p_s2,result[,2])
+plot(p_s2,result[,15])
+plot(p_s2,result[,16])
+plot(p_s2,result[,29])
+plot(p_s2,result[,30])
+```
+
+
+
+
+
+
+
+#test_pcs1
+```{r}
+test_pcs1<- function(e1,e2,s1,s2,n1,n2,p0,p1,p2) 
+{ 
+  s<-0
+  for(i in 0:n1)
+  {
+    for(j in 0:n1)
+    {
+      for(k in 0:n1)
+      {
+        for(l in 0:n1)
+        {
+          for(a in 0:n1)
+          {
+            for(b in 0:n1)
+            {
+              
+              if( ((a-i>=e1) & (b-j>=s1) & (l-j<s1) & (k-i<e1)) | ((a-i>=e1) & (b-j>=s1) & (l-j>=s1) & (k-i<e1)) | ((a-i>=e1) & (b-j>=s1) & (l-j<s1) & (k-i>=e1)) )
+              {
+                 for(c in 0:n2)
+                 {
+                    for(d in 0:n2)
+                    {
+                      for(e in 0:n2 )
+                      {
+                        for(f in 0:n2)
+                        {
+                          
+                          if((a+e-i-c>=e2) & (b+f-j-d>=s2))
+                          {
+                            s <- s + joint_prob(i,j,n1,p0) * joint_prob(k,l,n1,p1) * joint_prob(a,b,n1,p2) * joint_prob(c,d,n2,p0) * joint_prob(e,f,n2,p2)
+                          }
+                          
+                          
+                        }
+                      }
+                    }
+                 }
+              }
+              
+              
+              if( ((a-i>=e1) & (b-j>=s1) & (l-j>=s1) & (k==a))  )
+              {
+                 for(c in 0:n2)
+                 {
+                    for(d in 0:n2)
+                    {
+                      for(e in 0:n2 )
+                      {
+                        for(f in 0:n2)
+                        {
+                          
+                          if((a+e-i-c>=e2) & (b+f-j-d>=s2))
+                          {
+                            s <- s + 0.5*joint_prob(i,j,n1,p0) * joint_prob(k,l,n1,p1) * joint_prob(a,b,n1,p2) * joint_prob(c,d,n2,p0) * joint_prob(e,f,n2,p2)
+                          }
+                          
+                          
+                        }
+                      }
+                    }
+                 }
+              }
+             
+            }
+          }
+        }
+      }
+    }
+  }
+  s
+}
+```
+
+
+
+
+
+#Find position of pe0, ps0
+```{r}
+p_e0<-0.5
+p_s0<-0.5
+delta_e2<-0.4
+delta_s2<-0.4
+delta_e1<-0.4
+delta_s1<-0.4
+
+p_e<- c(p_e0,p_e0+delta_e1-delta_e2, p_e0+delta_e1)
+p_s<- c(p_s0,p_s0+delta_s1-delta_s2, p_s0+delta_s1)
+```
+
+
+
+
+```{r}
+ne<-11
+ns<-11
+ee<-seq(0.25,0.35,length.out=ne)
+ee<-seq(0.25,0.35,length.out=ne)
+ss<-seq(0.25,0.35,length.out=ns)
+
+result<- matrix(data = NA, nrow = ns  , ncol = ne)
+
+for(mm in 1:ns)
+{
+  for(kk in 1:ne)
+  {
+    p_e<- c(ee[kk],ee[kk]+delta_e1-delta_e2, ee[kk]+delta_e1)
+    p_s<- c(ss[mm],ss[mm]+delta_s1-delta_s2, ss[mm]+delta_s1)
+    
+    k<- length(p_e) -1
+    phi <- 1
+
+    p <- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p[i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+n1<-10
+n2<-10
+r1<-1
+r2<-2
+t1<-1
+t2<-2
+
+result[mm,kk]<-test_pcs1(r1,r2,t1,t2,n1,n2,p[1,],p[2,],p[3,])
+    
+    
+  }
+}
+```
+
+
+
+
+
+
+
+```{r}
+which.min(result)
+result[ne*ns]
+result[1]
+PCS<-result
+p_s2<-ss
+p_e2<-ee
+persp(p_s2,p_e2,PCS)
+
+
+
+plot(p_s2,result[,1])
+plot(p_s2,result[,2])
+plot(p_s2,result[,3])
+plot(p_s2,result[,4])
+plot(p_s2,result[,5])
+plot(p_s2,result[,6])
+plot(p_s2,result[,7])
+plot(p_s2,result[,ne-2])
+plot(p_s2,result[,ne-1])
+plot(p_s2,result[,ne])
+
+for(i in 1:ns)
+{
+  plot(p_e2,result[i,])
+  which.min(result[i,])
+}
+```
+

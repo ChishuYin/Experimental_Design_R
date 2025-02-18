@@ -1,0 +1,301 @@
+---
+title: "normal approx"
+output: html_document
+date: "2023-10-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+a <- function(pr,pt,fi)
+{
+  1+(fi-1)*(pr+pt)
+}
+
+b <- function(pr,pt,fi) 
+{
+  -4*fi*(fi-1)*pr*pt
+}
+
+##p11,p12,p21,p22
+prob <- function(pr,pt,fi)
+{
+  if(fi==1)
+  {
+    p<-c(pr*pt,pr-pr*pt,pt-pr*pt,1-pr-pt+pr*pt)
+    p
+  }
+  else{
+  a<- 1+(fi-1)*(pr+pt)
+  b <- -4*fi*(fi-1)*pr*pt
+  p <- matrix(nrow = 2, ncol = 2)
+  p[1,1] <- round(( a - ( a^2+b )^(0.5) ) / (2*(fi-1)),digits = 4)
+  p[1,2] <- round(pr-p[1,1],digits = 4)
+  p[2,1] <- round(pt-p[1,1],digits = 4)
+  p[2,2] <- round(1 - p[1,1] - p[1,2] - p[2,1],digits = 4)
+  p <- c(p[1,1],p[1,2],p[2,1],p[2,2])
+  p}
+}
+```
+
+
+#PCS1-independent
+```{r}
+Delta_2e<-0
+Delta_1e<-0
+Delta_1s<-0
+Delta_2s<-0
+
+
+innerfct<-function(wsk)
+{
+  dnorm(we0)*dnorm(ws0)*dnorm(wek)*dnorm(wsk)*(pnorm(wek+sqrt(4*n1)*(Delta_1e - Delta_2e))-pnorm(we0- sqrt(4*n1)*Delta_2e+sqrt(2)*ye1))^(m-1)*(1-pnorm(ws0-sqrt(4*n1)*Delta_2s+sqrt(2)*ys1))^(m-1)*(1-(1-pnorm(we0- sqrt(4*n1)*Delta_2e+sqrt(2)*ye1))*(1-pnorm(ws0-sqrt(4*n1)*Delta_2s+sqrt(2)*ys1)))^(k-m)*(1-pnorm(sqrt(2)*(ye2-sqrt(n1)*Delta_1e-sqrt(n2)*Delta_1e)-(1/sqrt(2))*(wek-we0)))*(1-pnorm(sqrt(2)*(ys2-sqrt(n1)*Delta_1s-sqrt(n2)*Delta_1s)-(1/sqrt(2))*(wsk-ws0)))
+}
+
+
+
+fct_norm_pcs1<-function(ye1,ye2,ys1,ys2,n1,n2,pe0,ps0,delta_e1,delta_s1,delta_e2,delta_s2,k)
+{
+  
+  Delta_1e<-asin(sqrt(pe0+delta_e1))-asin(sqrt(pe0))
+  Delta_2e<-asin(sqrt(pe0+delta_e1-delta_e2))-asin(sqrt(pe0))
+  Delta_1s<-asin(sqrt(ps0+delta_s1))-asin(sqrt(ps0))
+  Delta_2s<-asin(sqrt(ps0+delta_s1-delta_s2))-asin(sqrt(ps0))
+  
+  #ye1_star<-we0-sqrt(4*n1)*Delta_1e+sqrt(2)*ye1
+  #ys1_star<-ws0-sqrt(4*n1)*Delta_1s+sqrt(2)*ys1
+  
+  #fx<-function(x)
+  #{
+  #  dnorm(x)
+  #}
+  
+  #Fx<-function(x)
+  #{
+  #  pnorm(x)
+  #}
+  
+  sum<-0
+  for(m in 1:k)
+  {
+  UUU<-integrate(function(we0) { sapply(we0, function(we0) { 
+              integrate(function(ws0){  sapply(ws0, function(ws0) {
+              integrate(function(wek){  sapply(wek, function(wek) { 
+              integrate(function(wsk)
+                dnorm(we0)*dnorm(ws0)*dnorm(wek)*dnorm(wsk)*(pnorm(wek+sqrt(4*n1)*(Delta_1e - Delta_2e))-pnorm(we0- sqrt(4*n1)*Delta_2e+sqrt(2)*ye1))^(m-1)*(1-pnorm(ws0-sqrt(4*n1)*Delta_2s+sqrt(2)*ys1))^(m-1)*(1-(1-pnorm(we0- sqrt(4*n1)*Delta_2e+sqrt(2)*ye1))*(1-pnorm(ws0-sqrt(4*n1)*Delta_2s+sqrt(2)*ys1)))^(k-m)*(1-pnorm(sqrt(2)*(ye2-sqrt(n1)*Delta_1e-sqrt(n2)*Delta_1e)-(1/sqrt(2))*(wek-we0)))*(1-pnorm(sqrt(2)*(ys2-sqrt(n1)*Delta_1s-sqrt(n2)*Delta_1s)-(1/sqrt(2))*(wsk-ws0)))
+               ,ws0-sqrt(4*n1)*Delta_1s+sqrt(2)*ys1, Inf)$value
+              })},we0-sqrt(4*n1)*Delta_1e+sqrt(2)*ye1, Inf)$value })},-Inf, Inf)$value})},-Inf,Inf)$value
+    sum<-sum+UUU
+  }
+  sum
+}
+
+#fct_norm_pcs1(0,0,0,0,1,1,0.5,0.5,0.2,0.2,0.1,0.1,2)
+```
+
+
+```{r} 
+fct_norm_pcs1(0,0,0,0,125,130,0.5,0.5,0.2,0.2,0.1,0.1,2)
+```
+
+
+#Simulaiton
+```{r}
+NN<-100
+result<-seq(0,0,length=NN)
+n1<-125
+n2<-130
+ye1<-0
+ys1<-0
+ye2<-0
+ys2<-0
+pe0<-0.5
+ps0<-0.5
+delta_e2<-0.1
+delta_s2<-0.1
+delta_e1<-0.2
+delta_s1<-0.2
+
+    p_e<- c(pe0,pe0+delta_e1-delta_e2, pe0+delta_e1)
+    p_s<- c(ps0,ps0+delta_s1-delta_s2, ps0+delta_s1)
+    
+    k<- length(p_e) -1
+    phi <- 1
+
+    p00 <- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p00[i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+    
+
+
+for(j in  1:NN)
+{
+s<-0
+N<-10000                                                                                                                                    
+
+x0<-rmultinom(N,n1,p00[1,])
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p00[2,])
+x2<-rmultinom(N,n1,p00[3,])
+
+xx0<-rmultinom(N,n2,p00[1,])
+#x<-matrix(data = NA,nrow = k, ncol = N)
+xx1<-rmultinom(N,n2,p00[2,])
+xx2<-rmultinom(N,n2,p00[3,])
+
+
+for( i in 1:N)
+{
+  xe12<-x2[1,i]+x2[2,i]
+  xs12<-x2[1,i]+x2[3,i]
+  ze12<-sqrt(4*n1)*asin(sqrt(xe12/n1))
+  zs12<-sqrt(4*n1)*asin(sqrt(xs12/n1))
+  xe11<-x1[1,i]+x1[2,i]
+  xs11<-x1[1,i]+x1[3,i]
+  ze11<-sqrt(4*n1)*asin(sqrt(xe11/n1))
+  zs11<-sqrt(4*n1)*asin(sqrt(xs11/n1))
+  xe10<-x0[1,i]+x0[2,i]
+  xs10<-x0[1,i]+x0[3,i]
+  ze10<-sqrt(4*n1)*asin(sqrt(xe10/n1))
+  zs10<-sqrt(4*n1)*asin(sqrt(xs10/n1))
+  
+  
+  xe22<-xx2[1,i]+xx2[2,i]
+  xs22<-xx2[1,i]+xx2[3,i]
+  xe20<-xx0[1,i]+xx0[2,i]
+  xs20<-xx0[1,i]+xx0[3,i]
+  
+  
+  ze22<-sqrt(4*n2)*asin(sqrt(xe22/n2))
+  ze20<-sqrt(4*n2)*asin(sqrt(xe20/n2))
+  
+  zs22<-sqrt(4*n2)*asin(sqrt(xs22/n2))
+  zs20<-sqrt(4*n1)*asin(sqrt(xs20/n2))
+  
+  Te11<-(1/sqrt(2))*(ze11-ze10)
+  Te12<-(1/sqrt(2))*(ze12-ze10)
+  Te22<-0.5*(ze12-ze10+ze22-ze20)
+  
+  Ts11<-(1/sqrt(2))*(zs11-zs10)
+  Ts12<-(1/sqrt(2))*(zs12-zs10)
+  Ts22<-0.5*(zs12-zs10+zs22-zs20)
+  
+  if( Te12>=ye1 & Ts12>=ys1  &  Te22  >=ye2 & Ts22  >=ys2)
+  {
+    if( Ts11 < ys1 )
+    {
+      s<-s+1
+    }
+    if( Ts11>= ys1 & Te11< Te12)
+    {
+      s<-s+1
+    }
+    if( Ts11>= ys1 & Te11== Te12)
+    {
+      s<-s+1/2
+    }
+  }
+
+}
+result[j]<-s/N
+}
+
+summary(result)
+```
+
+
+#试手
+```{r}
+#fct_norm_pcs1(0,0,0,0,1,1,0.5,0.5,0.2,0.2,0.1,0.1,2)
+ye1<-0
+ys1<-0
+ye2<-0
+ys2<-0
+pe0<-0.5
+ps0<-0.5
+delta_e2<-0.1
+delta_s2<-0.1
+delta_e1<-0.2
+delta_s1<-0.2
+k<-2
+  Delta_1e<-asin(sqrt(pe0+delta_e1))-asin(sqrt(pe0))
+  Delta_2e<-asin(sqrt(pe0+delta_e1-delta_e2))-asin(sqrt(pe0))
+  Delta_1s<-asin(sqrt(ps0+delta_s1))-asin(sqrt(ps0))
+  Delta_2s<-asin(sqrt(ps0+delta_s1-delta_s2))-asin(sqrt(ps0))
+  
+#  ye1_star<-we0-sqrt(4*n1)*Delta_1e+sqrt(2)*ye1
+ # ys1_star<-ws0-sqrt(4*n1)*Delta_1s+sqrt(2)*ys1
+  
+  fx<-function(x)
+  {
+    dnorm(x)
+  }
+  
+  Fx<-function(x)
+  {
+    pnorm(x)
+  }
+  
+  sum<-0
+  for(m in 1:k)
+  {
+  UUU<-integrate(function(we0) { sapply(we0, function(we0) { 
+              integrate(function(ws0){  sapply(ws0, function(ws0) {
+              integrate(function(wek){  sapply(wek, function(wek) { 
+              integrate(function(wsk)
+                wsk*dnorm(we0)+wek*we0*ws0
+               ,ws0-sqrt(4*n1)*Delta_1s+sqrt(2)*ys1, 1)$value
+              })},we0-sqrt(4*n1)*Delta_1e+sqrt(2)*ye1, 1)$value })},0, 1)$value})},0,1)$value
+    sum<-sum+UUU
+  }
+  sum
+```
+
+
+```{r}
+InnerFunc = function(x) { x + 0.805 }
+InnerIntegral = Vectorize(function(y) { integrate(InnerFunc, 15, y)$value})
+integrate(InnerIntegral , 15, 50)
+
+
+fx<-function(x){
+         dlnorm(x,meanlog=2.185,sdlog=0.562)
+       }
+
+#U31<-integrate(function(y1) { sapply(y1, function(y1) { 
+#              integrate(function(y2){  sapply(y2, function(y2) {
+#              integrate(function(x1){  sapply(x1, function(x1) { 
+#              integrate(function(x2)
+#               abs(y1/3+y2/3+x1/3-x2)*fx(y1)*fx(y2)*fx(x1)*fx(x2),0, Inf)$value
+#              })},0, Inf)$value })},0, Inf)$value})},0,Inf)$value
+innerfct<-function(wsk)
+{
+  wek+wsk+we0+ws0
+}
+UUU<-integrate(function(we0) { sapply(we0, function(we0) { 
+              integrate(function(ws0){  sapply(ws0, function(ws0) {
+              integrate(function(wek){  sapply(wek, function(wek) { 
+              integrate(function(wsk)
+                wsk*dnorm(we0)+wek*we0*ws0
+               ,ys1_star, 1)$value
+              })},ye1_star, 1)$value })},0, 1)$value})},0,1)$value
+UUU
+   
+UUU<-integrate(function(we0) { sapply(we0, function(we0) { 
+       integrate(function(ws0){  sapply(ws0, function(ws0) {
+       integrate(function(wek){  sapply(wek, function(wek) { 
+       integrate(function(wsk) 
+         fx(we0)
+               ,ys1_star, 1)$value
+              })},ye1_star, 1)$value })},0, 1)$value})},0,1)$value
+UUU
+```
+

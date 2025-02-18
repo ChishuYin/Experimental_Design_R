@@ -1,0 +1,960 @@
+---
+title: "JMS 2022"
+author: "Chishu Yin"
+date: "2022/5/16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+a <- function(pr,pt,fi)
+{
+  1+(fi-1)*(pr+pt)
+}
+
+b <- function(pr,pt,fi)
+{
+  -4*fi*(fi-1)*pr*pt
+}
+
+##p11,p12,p21,p22
+prob <- function(pr,pt,fi)
+{
+  if(fi==1)
+  {
+    p<-c(pr*pt,pr-pr*pt,pt-pr*pt,1-pr-pt+pr*pt)
+    p
+  }
+  else{
+  a<- 1+(fi-1)*(pr+pt)
+  b <- -4*fi*(fi-1)*pr*pt
+  p <- matrix(nrow = 2, ncol = 2)
+  p[1,1] <- round(( a - ( a^2+b )^(0.5) ) / (2*(fi-1)),digits = 4)
+  p[1,2] <- round(pr-p[1,1],digits = 4)
+  p[2,1] <- round(pt-p[1,1],digits = 4)
+  p[2,2] <- round(1 - p[1,1] - p[1,2] - p[2,1],digits = 4)
+  p <- c(p[1,1],p[1,2],p[2,1],p[2,2])
+  p}
+}
+```
+
+
+
+
+
+```{r}
+p_e0<-0.7
+p_s0<-0.6
+delta_e2 <- 0.1
+delta_s2 <- 0.1
+
+ee<-seq(0,1,length.out=30)
+ss<-seq(0,1,length.out=30)
+
+result<- matrix(data = NA, nrow = 30, ncol = 30)
+
+for(mm in 1:30)
+{
+  for(kk in 1:30)
+  {
+    p_e<- c(p_e0,p_e0, ee[kk])
+    p_s<- c(p_s0,p_s0, ss[mm])
+    
+    k<- length(p_e) -1
+    phi <- 2
+
+    p <- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p[i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+n1<-10
+n2<-10
+r1<-1
+r2<-2
+t1<-1
+t2<-2
+N<-10000
+x0<-rmultinom(N,n1,p[1,])
+x<-matrix(data = NA,nrow = k, ncol = N)
+
+x1<-rmultinom(N,n1,p[2,])
+x2<-rmultinom(N,n1,p[3,])
+
+s<-0
+for(i in 1:N)
+{
+  
+  if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1)
+  {
+    if((x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))>=t1 & (x2[1,i]+x2[2,i]-(x1[1,i]+x1[2,i]))> 0)
+    {
+      s<-s+1
+    }
+    else if((x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))>=t1 & (x2[1,i]+x2[2,i]-(x1[1,i]+x1[2,i]))==0)
+    {
+      s<-s+1/k
+    }
+    else if((x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))<r1 | (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))<t1)
+    {
+      s<-s+1
+    }
+  }
+
+}
+result[mm,kk]<-s/N
+    
+    
+  }
+}
+
+
+
+```
+
+```{r}
+#for(i in 1:30)
+#{
+#  plot(ee,result[i,],main = ss[i],ylim = c(0.25,0.4))
+#}
+
+which.min(result)
+result[900]
+result[1]
+PCS<-result
+p_s2<-ss
+p_e2<-ee
+persp(p_s2,p_e2,PCS)
+
+
+```
+
+
+
+
+
+
+Want the function $P(X_{11}+X_{12}-(Y_{11}+Y_{12})=r_1,X_{11}+X_{21}-(Y_{11}+Y_{21})=t_1)$
+
+```{r}
+multibin_prob<-function(r1,t1,n1,p1,p2)
+{
+
+  summ<-0
+  for (i in 0:(n1-r1)) {
+    for(j in 0:max(r1+i,0)){
+      for(k in 0:i){
+        for(l in 0:min(n1-i,n1+j-k-t1-i-r1)){
+          if(l<0 | (r1+i-j)<0 | (t1+k-j+l)<0 | (n1-j-(r1+i-j)-(t1+k-j+l))<0 | (n1-k-(i-k)-(l))<0){next}
+          else{
+          x <- c( (j) , (r1+i-j) , (t1+k-j+l) , (n1-j-(r1+i-j)-(t1+k-j+l) ))
+          #print(x)
+          #print(c(i,j,k,l,00000))
+          y <- c( k , i-k, l , (n1-k-(i-k)-(l)) )
+          #print(y)
+          summ <- summ + dmultinom(x, size = NULL, prob = p1, log = FALSE)*dmultinom(y, size = NULL, prob = p2, log = FALSE)
+        
+        }}
+      }
+    }
+    
+  }
+ summ
+}
+
+multibin_prob(3,-1,17,c(0.2815, 0.6185, 0.0185, 0.0815), c(0.2384, 0.4616, 0.0616, 0.2384))
+
+```
+
+
+
+
+
+
+Want the function $P(X_{11}+X_{12}-(Y_{11}+Y_{12})=r_1,X_{11}+X_{21}-(Y_{11}+Y_{21})=t_1)$
+
+```{r}
+#p1 treatment; p2 control
+multibin_prob<-function(r1,t1,n1,p1,p2)
+{
+
+  summ<-0
+  for (i in 0:(n1-r1)) {
+    for(j in 0:max(r1+i,0)){
+      for(k in 0:i){
+        for(l in 0:min(n1-i,n1+j-k-t1-i-r1)){
+          if(l<0 | (r1+i-j)<0 | (t1+k-j+l)<0 | (n1-j-(r1+i-j)-(t1+k-j+l))<0 | (n1-k-(i-k)-(l))<0){next}
+          else{
+          x <- c( (j) , (r1+i-j) , (t1+k-j+l) , (n1-j-(r1+i-j)-(t1+k-j+l) ))
+          #print(x)
+          #print(c(i,j,k,l,00000))
+          y <- c( k , i-k, l , (n1-k-(i-k)-(l)) )
+          #print(y)
+          summ <- summ + dmultinom(x, size = NULL, prob = p1, log = FALSE)*dmultinom(y, size = NULL, prob = p2, log = FALSE)
+        
+        }}
+      }
+    }
+    
+  }
+ summ
+}
+
+multibin_prob(3,-1,17,c(0.2815, 0.6185, 0.0185, 0.0815), c(0.2384, 0.4616, 0.0616, 0.2384))
+
+```
+
+
+$P(X_{e1}-Y_{e1}\geq e_1, X_{s1}-Y_{s1} \geq s_1, X_{e1}+X_{e2} - (Y_{e1}+Y_{e2}) \geq e_2, X_{s1}+X_{s2}- (Y_{s1}+Y_{s2}) \geq s_2)$
+```{r}
+#p1 treatment, p2 is control
+cumu_fct1 <- function(e1,e2,s1,s2,n1,n2,p1,p2)
+{
+  s<-0
+  for(i in e1:n1)
+  {
+    for(j in s1 : n1)
+    {
+      for(k in max(0,e2-i):n2)
+      {
+        for(l in max(0,s2-j):n2)
+        {
+          s<-s+ multibin_prob(i,j,n1,p1,p2)*multibin_prob(k,l,n2,p1,p2)
+        }
+      }
+    }
+  }
+  s
+}
+```
+
+
+
+
+
+
+$P(X_{s1} - Y_{s1} < s_1)$
+```{r}
+# p1 treatment, p2 control
+cumu_fct2 <- function(s1,n1,p1,p2)
+{
+  s<-0
+  for(i in 0:n1)
+  {
+    for(j in 0:(s1-1) )
+    {
+      s<-s+ multibin_prob(i,j,n1,p1,p2)
+    }
+  }
+  s
+}
+```
+
+
+
+
+
+
+
+$P(Xr=xr,Xt=xt)$
+```{r}
+#P(Xr=xr,Xt=xt)
+joint_prob <- function(xr,xt,n1,p)
+{
+  sum <- 0
+  for(i in max(0,xr+xt-n1) : min(xr,xt))
+  {
+    if(i<0 | xr-i<0 | xt-i<0 | n1-xr-xt+i<0)
+    {
+      sum<-sum+0
+    }
+    else{
+    x <- c( i , xr-i , xt-i , n1-xr-xt+i )
+    sum <- sum + dmultinom(x, size = NULL, prob = p, log = FALSE)
+    ##cat("s = ", sum,"x =", x, "\n")
+    }
+  }
+  sum
+}
+```
+
+
+
+
+
+
+
+
+function for k=2, PCS1-1 delta1=delta2, note shizi page 2-3
+```{r}
+#p0 control; p1, p2 are treatments, p2 selected
+fct_PCS11 <- function(e1,e2,s1,s2,n1,n2,p0,p1,p2)
+{
+  s<-0
+  for( i in 0: min(n1-e1,n1) )
+  {
+    for( j in max(1-s1,0): min(n1,n1-s1))
+    {
+      for( k in 0 : n1)
+      {
+        for( l in 0 : max(min(n1,s1+j-1),0) )
+        {
+          for( a in max(min(e1+i,n1),0) : n1)
+          {
+            for( b in max(min(s1+j,n1),0) : n1)
+            {
+              for( c in 0 : min(n2+a-i-e2,n2) )
+              {
+                for( d in 0 : min(n2+b-j-s2,n2))
+                {
+                  for(e in max(min(e2+i+c-a,n2),0) : n2)
+                  {
+                    for(f in max(min(s2+j+d-b,n2),0) : n2)
+                    {
+                      
+                     #if(   s1+j-1<0 | e1+i>n1  | s1+j>n1 | e2+i+c-a>n1  | s2+j+d-b>n1 )
+                      #if( n2+a-i-e2<0 | n2+b-j-s2<0 | i<0 | j<0 | k<0 | l<0 | a<0 | b<0| c<0| d<0 | e<0 | f<0)
+                      #{
+                      #  s<-s+0
+                      #}
+                      
+                      #else
+                      {
+                        s <- s + joint_prob(i,j,n1,p0) * joint_prob(k,l,n1,p1) * joint_prob(a,b,n1,p2) * joint_prob(c,d,n2,p0) * joint_prob(e,f,n2,p2)
+                      }
+                      
+                      
+                      
+                      
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  s
+}
+```
+
+test
+```{r}
+n1<-4
+n2<-10
+r1<-1
+r2<-2
+t1<-0
+t2<-5
+p0<-p[1,] #control
+p1<-p[2,]
+p2<-p[3,]
+
+fct_PCS11(r1,r2,t1,t2,n1,n2,p0,p1,p2)
+```
+
+
+#simulation PCS11
+```{r}
+s<-0
+N<-100000
+
+x0<-rmultinom(N,n1,p[1,])
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p[2,])
+x2<-rmultinom(N,n1,p[3,])
+
+xx0<-rmultinom(N,n2,p[1,])
+#x<-matrix(data = NA,nrow = k, ncol = N)
+xx1<-rmultinom(N,n2,p[2,])
+xx2<-rmultinom(N,n2,p[3,])
+
+
+for( i in 1:N)
+{
+  if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1  &  (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))  +  (xx2[1,i]+xx2[2,i]-(xx0[1,i]+xx0[2,i]))   >=r2 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))   +  (xx2[1,i]+xx2[3,i]-(xx0[1,i]+xx0[3,i]))  >=t2)
+  {
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) < t1 )
+    {
+      s<-s+1
+    }
+  }
+
+}
+s/N
+```
+
+
+function for k=2, PCS1-2 delta1=delta2, note shizi page 2-3
+```{r}
+#p0 control; p1, p2 are treatments, p2 selected
+fct_PCS12 <- function(e1,e2,s1,s2,n1,n2,p0,p1,p2)
+{
+  s<-0
+  for(i in 0: min(n1,n1-e1))
+  {
+    for(j in 0 : min(n1,n1-s1))
+    {
+      for(k in 0 : (n1-1))
+      {
+        for(l in max(s1+j,0) : n1)
+        {
+          for(a in max(max(e1+i,k+1),i+e2-n2) : n1)
+          {
+            for(b in max(max(s1+j,0),s2+j-n2) : n1)
+            {
+              for(c in 0: min(n2, n2+a-i-e2))
+              {
+                for(d in 0 : min(n2, n2+b-s2-j))
+                {
+                  for(e in max(e2+i+c-a,0) : n2)
+                  {
+                    for(f in max(s2+j+d-b,0) : n2)
+                    {
+                       s <- s + joint_prob(i,j,n1,p0) * joint_prob(k,l,n1,p1) * joint_prob(a,b,n1,p2) * joint_prob(c,d,n2,p0) * joint_prob(e,f,n2,p2)
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  s
+}
+```  
+
+
+test
+```{r}
+n1<-4
+n2<-10
+r1<-1
+r2<-2
+t1<-0
+t2<-5
+p0<-p[1,] #control
+p1<-p[2,]
+p2<-p[3,]
+
+fct_PCS12(r1,r2,t1,t2,n1,n2,p0,p1,p2)
+```
+
+
+#simulation PCS12
+```{r}
+s<-0
+N<-1000000
+
+x0<-rmultinom(N,n1,p[1,])
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p[2,])
+x2<-rmultinom(N,n1,p[3,])
+
+xx0<-rmultinom(N,n2,p[1,])
+#x<-matrix(data = NA,nrow = k, ncol = N)
+xx1<-rmultinom(N,n2,p[2,])
+xx2<-rmultinom(N,n2,p[3,])
+
+
+for( i in 1:N)
+{
+  if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1  &  (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))  +  (xx2[1,i]+xx2[2,i]-(xx0[1,i]+xx0[2,i]))   >=r2 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))   +  (xx2[1,i]+xx2[3,i]-(xx0[1,i]+xx0[3,i]))  >=t2)
+  {
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]> x1[1,i]+x1[2,i])
+    {
+      s<-s+1
+    }
+  }
+
+}
+s/N
+```
+
+
+
+
+
+
+
+
+
+function for k=2, PCS1-3 delta1=delta2, note shizi page 2-3
+```{r}
+#p0 control; p1, p2 are treatments, p2 selected
+fct_PCS13 <- function(e1,e2,s1,s2,n1,n2,p0,p1,p2)
+{
+  s<-0
+  for(i in 0: min(n1,n1-e1))
+  {
+    for(j in 0 : min(n1,n1-s1))
+    {
+      for(k in max(e1+i,0) : n1)
+      {
+        for(l in max(s1+j,0) : n1)
+        {
+          
+          {
+            for(b in max(max(s1+j,0),s2+j-n2) : n1)
+            {
+              for(c in 0: min(n2, n2+k-i-e2))
+              {
+                for(d in 0 : min(n2, n2+b-s2-j))
+                {
+                  for(e in max(e2+i+c-k,0) : n2)
+                  {
+                    for(f in max(s2+j+d-b,0) : n2)
+                    {
+                       s <- s + joint_prob(i,j,n1,p0) * joint_prob(k,l,n1,p1) * joint_prob(k,b,n1,p2) * joint_prob(c,d,n2,p0) * joint_prob(e,f,n2,p2)
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  s/2
+}
+```  
+
+
+test
+```{r}
+n1<-4
+n2<-10
+r1<-1
+r2<-2
+t1<-0
+t2<-5
+p0<-p[1,] #control
+p1<-p[2,]
+p2<-p[3,]
+
+fct_PCS13(r1,r2,t1,t2,n1,n2,p0,p1,p2)
+```
+
+
+#simulation PCS13
+```{r}
+s<-0
+N<-1000
+
+x0<-rmultinom(N,n1,p[1,])
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p[2,])
+x2<-rmultinom(N,n1,p[3,])
+
+xx0<-rmultinom(N,n2,p[1,])
+#x<-matrix(data = NA,nrow = k, ncol = N)
+xx1<-rmultinom(N,n2,p[2,])
+xx2<-rmultinom(N,n2,p[3,])
+
+
+for( i in 1:N)
+{
+  if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=r1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=t1  &  (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))  +  (xx2[1,i]+xx2[2,i]-(xx0[1,i]+xx0[2,i]))   >=r2 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))   +  (xx2[1,i]+xx2[3,i]-(xx0[1,i]+xx0[3,i]))  >=t2)
+  {
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) >= t1  &  x2[1,i]+x2[2,i]== x1[1,i]+x1[2,i])
+    {
+      s<-s+1/2
+    }
+  }
+
+}
+s/N
+```
+
+
+
+
+
+
+
+#PCS1=PCS11+PCS12+PCS13
+```{r}
+#p0 control; p1, p2 are treatments, p2 selected
+fct_PCS1 <- function(e1,e2,s1,s2,n1,n2,p0,p1,p2)
+{
+  fct_PCS11(e1,e2,s1,s2,n1,n2,p0,p1,p2)+fct_PCS12(e1,e2,s1,s2,n1,n2,p0,p1,p2)+fct_PCS13(e1,e2,s1,s2,n1,n2,p0,p1,p2)
+}
+```
+
+
+
+
+
+
+
+
+
+#Find LFC
+```{r}
+p_e0<-0.7
+p_s0<-0.5
+delta_e1<-0.05
+delta_s1<-0.05
+delta_e2 <- 0.15
+delta_s2 <- 0.15
+
+ee<-seq(0,1,length.out=10)
+ss<-seq(0,1,length.out=10)
+
+result<- matrix(data = NA, nrow = 10, ncol = 10)
+
+for(mm in 1:10)
+{
+  for(kk in 1:10)
+  {
+    p_e<- c(p_e0,ee[kk],ee[kk])
+    p_s<- c(p_s0,ss[mm], ss[mm])
+    
+    k<- length(p_e) -1
+    phi <- 2
+
+    p <- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p[i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+n1<-4
+n2<-10
+r1<-1
+r2<-2
+t1<-1
+t2<-2
+
+result[mm,kk]<- fct_PCS1(r1,r2,t1,t2,n1,n2,p[1,],p[2,],p[3,])
+    
+    
+  }
+}
+
+
+
+```
+
+
+```{r}
+result100<-result
+```
+
+
+
+```{r}
+#for(i in 1:30)
+#{
+#  plot(ee,result[i,],main = ss[i],ylim = c(0.25,0.4))
+#}
+
+which.min(result)
+result[400]
+PCS<-result
+pe_1<-ee
+ps_1<-ss
+persp(ps_1,pe_1,PCS)
+
+#result100<-result
+
+```
+
+
+
+Derivative
+phi=2
+```{r}
+fun_multinomial <- expression( factorial(n)/(factorial(i)*factorial(j)*factorial(k)*factorial(n-i-j-k) ) * ( (1+pe+ps - sqrt((1+pe+ps)^2 - 8*pe*ps)/2)  )^i * (pe- (1+pe+ps - sqrt((1+pe+ps)^2 - 8*pe*ps)/2)   )^j * (ps-p11)^k * (1-pe-ps+ (1+pe+ps - sqrt((1+pe+ps)^2 - 8*pe*ps)/2)  )^(n-i-j-k) )
+
+i=1
+j=1
+k=2
+n=5
+ps<-0.5
+pe<-0.6
+
+
+#eval(D(fun_multinomial,"p11"))
+
+Deriv_multinomial<-function(i,j,k,n)
+{
+  (D(fun_multinomial,"p11"))
+}
+
+
+#Deriv_multinomial(1,1,2,5)
+
+
+
+
+
+g<-deriv(y~factorial(n)/(factorial(i)*factorial(j)*factorial(k)*factorial(n-i-j-k) ) * p11^i * (pe-p11)^j * (ps-p11)^k * (1-pe-ps+p11)^(n-i-j-k),"p11",func = TRUE)
+```
+
+
+
+
+Derivative
+```{r}
+ie2<-1
+n1<-9
+pe0<-0.5
+pek<-pe0+0.1
+d<-0
+for(k in 0:(n1-ie2)){
+s<-0
+n2<-10
+#print(s)
+for (c in (k+1):n2) {
+  s<-s+dbinom(c,n2,pe0)*dbinom(c-k-1,n2-1,pek)
+}
+print(s)
+d<- d + s*(dbinom(ie2+k-1,n1-1,pek)-dbinom(ie2+k,n1-1,pek))
+}
+d
+```
+
+
+
+
+
+
+Derivative for p_e^k when p_e^k=p_e^1, p_s^k=p_s^1 $\frac{\partial}{\partial p_e^k}P(X_e^k - X_e^0 = e, X_s^k - X_s^0 = s)$ $\phi=1, -n \leq e,s \leq n$ 
+```{r}
+p_e_deri <-function(e,s,n,pek,pe0,psk,ps0)
+{
+  sum<-0
+  for(i in max(e,0) : min(n,n+e))
+  {
+    for (j in max(s,0) : min(n,n+s) ) 
+    {
+      if(i==0)
+      {
+        sum<-sum + (-n*dbinom(0,n-1,pek)*dbinom(j,n,psk)*dbinom(i-e,n,pe0)*dbinom(j-s,n,ps0))
+      }
+      else if(i==n)
+      {
+        sum <- sum + n*dbinom(n-1,n-1,pek)*dbinom(j,n,psk)*dbinom(i-e,n,pe0)*dbinom(j-s,n,ps0)
+      }
+      else
+      {
+        sum <- sum + n*(dbinom(i-1,n-1,pek)-dbinom(i,n-1,pek))*dbinom(j,n,psk)*dbinom(i-e,n,pe0)*dbinom(j-s,n,ps0)
+      }
+    }
+  }
+  sum
+}
+```
+
+
+
+$P(X_e^k - X_e^0 = e, X_s^k-X_s^0=s)$ $-n \leq e,s \leq n, \phi=1$
+```{r}
+diff_prob <- function(e,s,n,pek,pe0,psk,ps0)
+{
+  sum<-0
+  for(i in max(e,0): min(n,n+e))
+  {
+    for(j in max(s,0) : min(n,n+s))
+    {
+      sum <- sum + dbinom(i,n,pek)*dbinom(j,n,psk)*dbinom(i-e,n,pe0)*dbinom(j-s,n,ps0)
+    }
+  }
+  sum
+}
+```
+
+
+Test 
+```{r}
+e<--2
+s<--6
+pek<-0.6
+pe0<-0.4
+psk<-0.7
+ps0<-0.4
+n<-8
+
+#diff_prob(e,s,n,pek,pe0,psk,ps0)
+ss<-0
+for( e in (-n):n)
+{
+  for(s in (-n):n)
+  {
+    ss<-ss+diff_prob(e,s,n,pek,pe0,psk,ps0)
+  }
+}
+ss
+
+
+
+
+#Simulation
+e<--2
+s<--6
+pek<-0.6
+pe0<-0.4
+psk<-0.7
+ps0<-0.4
+n<-8
+
+diff_prob(e,s,n,pek,pe0,psk,ps0)
+
+
+N<-100000
+ss<-0
+for(i in 1:N)
+{
+  xek<-rbinom(1,n,pek)
+  xsk<-rbinom(1,n,psk)
+  xe0<-rbinom(1,n,pe0)
+  xs0<-rbinom(1,n,ps0)
+  if(xek-xe0==e & xsk-xs0==s)
+  {
+    ss<-ss+1
+  }
+}
+ss/N
+```
+
+
+PCS1_1 use diff_prob $P(X_{ke}^1 - X_{0e}^1 \geq e_1, X_{ks}^1 - X_{0s}^1 \geq s_1, X_{ke}^2 -X_{0e}^2 \geq e_2-e_1, X_{ks}^2 - X_{0s}^2 \geq s_2-s_1, X_{is}^1 - X_{0s}^1 < s_1)$ $\phi=1, p_e^k=p_e^1, p_s^k=p_s^1$
+```{r}
+
+dif_PCS11 <- function(e1,e2,s1,s2,n1,n2,pek,pe0,psk,ps0)
+{
+  sum<-0
+  for(i in e1 : n1)
+  {
+    for(j in s1:n1)
+    {
+      for(k in (e2-i):n2)
+      {
+        for(l in (s2-j):n2)
+        {
+          for (a in 0:(s1-1)) 
+          {
+            for (b in 0:n1) 
+            {
+              sum<- sum + diff_prob(i,j,n1,pek,pe0,psk,ps0)*diff_prob(k,l,n2,pek,pe0,psk,ps0)*diff_prob(a,b,n1,pek,pe0,psk,ps0)
+            }
+          }
+        }
+      }
+    }
+  }
+  sum
+}
+
+```
+
+
+Test
+```{r}
+e1<-1
+e2<-2
+s1<-1
+s2<-2
+n1<-6
+n2<-7
+pek<-0.7
+pe0<-0.5
+psk<-0.8
+ps0<-0.6
+p0<-c(pe0*ps0, pe0- pe0*ps0, ps0- pe0*ps0, 1-pe0-ps0+pe0*ps0)
+p2<-c(pek*psk, pek- pek*psk, psk- pek*psk, 1-pek-psk+pek*psk)
+p1<-p2
+
+#fct_PCS11(e1,e2,s1,s2,n1,n2,p0,p1,p2)
+dif_PCS11(e1,e2,s1,s2,n1,n2,pek,pe0,psk,ps0)
+```
+
+#simulation PCS11
+```{r}
+s<-0
+N<-100000
+
+x0<-rmultinom(N,n1,p0)
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p1)
+x2<-rmultinom(N,n1,p2)
+
+xx0<-rmultinom(N,n2,p0)
+#x<-matrix(data = NA,nrow = k, ncol = N)
+xx1<-rmultinom(N,n2,p1)
+xx2<-rmultinom(N,n2,p2)
+
+
+for( i in 1:N)
+{
+  if( (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))>=e1 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))>=s1  &  (x2[1,i]+x2[2,i]-(x0[1,i]+x0[2,i]))  +  (xx2[1,i]+xx2[2,i]-(xx0[1,i]+xx0[2,i]))   >=e2 & (x2[1,i]+x2[3,i]-(x0[1,i]+x0[3,i]))   +  (xx2[1,i]+xx2[3,i]-(xx0[1,i]+xx0[3,i]))  >=s2)
+  {
+    if( (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i])) < s1 )
+    {
+      s<-s+1
+    }
+  }
+
+}
+s/N
+```
+
+
+```{r}
+dif_PCS11_sub <- function(e1,e2,s1,s2,n1,n2,pek,pe0,psk,ps0)
+{
+  sum<-0
+  for(i in e1 : n1)
+  {
+    for(j in s1:n1)
+    {
+      
+              sum<- sum + diff_prob(i,j,n1,pek,pe0,psk,ps0)
+            
+          
+        
+      
+    }
+  }
+  sum
+}
+
+dif_PCS11_sub(e1,e2,s1,s2,n1,n2,pek,pe0,psk,ps0)
+
+
+N<-100000
+ss<-0
+for(i in 1:N)
+{
+  xek<-rbinom(1,n1,pek)
+  xsk<-rbinom(1,n1,psk)
+  xe0<-rbinom(1,n1,pe0)
+  xs0<-rbinom(1,n1,ps0)
+  if(xek-xe0>=e1 & xsk-xs0>=s1)
+  {
+    ss<-ss+1
+  }
+}
+ss/N
+
+```
+
+
+
+
+
+
+
+

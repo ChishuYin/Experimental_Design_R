@@ -1,0 +1,549 @@
+---
+title: "one stage testing"
+output: html_document
+date: "2025-01-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#Prepare
+```{r}
+a <- function(pr,pt,fi)
+{
+  1+(fi-1)*(pr+pt)
+}
+
+b <- function(pr,pt,fi)
+{
+  -4*fi*(fi-1)*pr*pt
+}
+
+##
+prob <- function(pr,pt,fi)
+{
+  if(fi==1)
+  {
+    p<-c(pr*pt,pr-pr*pt,pt-pr*pt,1-pr-pt+pr*pt)
+    p
+  }
+  else{
+  a<- 1+(fi-1)*(pr+pt)
+  b <- -4*fi*(fi-1)*pr*pt
+  p <- matrix(nrow = 2, ncol = 2)
+  p[1,1] <- round(( a - ( a^2+b )^(0.5) ) / (2*(fi-1)),digits = 5)
+  p[1,2] <- round(pr-p[1,1],digits = 5)
+  p[2,1] <- round(pt-p[1,1],digits = 5)
+  if(round(1 - p[1,1] - p[1,2] - p[2,1],digits = 5)<0)
+  {
+    p[2,2] <- 0
+    p[1,1] <- p[1,1] + round(1 - p[1,1] - p[1,2] - p[2,1],digits = 5)/3
+    p[1,2] <- p[1,2] + round(1 - p[1,1] - p[1,2] - p[2,1],digits = 5)/3
+    p[2,1] <- p[2,1] + round(1 - p[1,1] - p[1,2] - p[2,1],digits = 5)/3
+  }
+  else{
+    p[2,2] <- round(1 - p[1,1] - p[1,2] - p[2,1],digits = 5)
+  }
+  
+  p <- c(p[1,1],p[1,2],p[2,1],p[2,2])
+  p}
+}
+```
+
+
+
+#Test prepare
+```{r}
+n<-10
+e<-0
+s<-0  
+k<-1
+p_e0<-0.35
+p_s0<-0.35
+
+delta_e<-0.3
+delta_s<-0.3
+
+
+
+    p_e<- c(p_e0,p_e0+delta_e)
+    p_s<- c(p_s0,p_s0+delta_s)
+    
+    k<- length(p_e) -1
+    phi <- 1
+
+    p<- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p [i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+    
+p    
+```
+
+
+
+$P(Xr=xr,Xt=xt)$
+```{r}
+#P(Xr=xr,Xt=xt)
+joint_prob <- function(xr,xt,n1,p)
+{
+  sum <- 0
+  for(i in max(0,xr+xt-n1) : min(xr,xt))
+  {
+    if(i<0 || xr-i<0 || xt-i<0 || n1-xr-xt+i<0)
+    {
+      sum<-sum+0
+    }
+    else{
+    x <- c( i , xr-i , xt-i , n1-xr-xt+i )
+    sum <- sum + dmultinom(x, size = NULL, prob = p, log = FALSE)
+    ##cat("s = ", sum,"x =", x, "\n")
+    }
+  }
+  sum
+}
+
+joint_prob(0,0,5,p[1,])
+```
+
+
+
+
+```{r}
+pcs <- function(n,e,s,p,k)
+{
+  ss<-0
+  for(a in 0:n)
+  {
+    for(b in 0:n)
+    {
+      for(c in 0:n)
+      {
+        for(d in 0:n)
+        {
+          if((c-a>=e)&(d-b>=s))
+          {
+            ss<-ss+joint_prob(a,b,n,p[1,])*joint_prob(c,d,n,p[2,])
+          }
+        }
+      }
+    }
+  }
+  ss
+}
+```
+
+
+
+```{r}
+pcs_test <- function(n,e,s,p,k)
+{
+  ss<-0
+  for(a in 0:min(n,n-e))
+  {
+    for(b in 0:min(n,n-s))
+    {
+      for(c in max(e+a,0):n)
+      {
+        for(d in max(s+b,0):n)
+        {
+         
+            ss<-ss+joint_prob(a,b,n,p[1,])*joint_prob(c,d,n,p[2,])
+          
+        }
+      }
+    }
+  }
+  ss
+}
+
+pcs(24,4,4,p,k)
+pcs_test(24 , 4 ,4,p,k)
+```
+
+
+#plots
+```{r}
+
+nn<-10
+# 准备数据
+pe <- seq(0, 1, length.out = nn)
+ps <- seq(0, 1, length.out = nn)
+
+
+
+  
+k<- 1
+phi <- 50
+
+zz<-matrix(data= NA, nrow = nn, ncol = nn)
+
+
+for(h in 1:nn)
+{
+  for(j in 1:nn)
+  {
+    p_e<- c(p_e0,pe[h])
+    p_s<- c(p_s0,ps[j])
+    p<- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p [i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    zz[h,j] <- pcs(n,e,s,p,k)
+  }
+}
+
+
+plot(pe,zz[,5])
+plot(ps,zz[5,])
+```
+
+```{r}
+
+nn<-30
+# 准备数据
+pe0 <- seq(0, 1, length.out = nn)
+ps0 <- seq(0, 1, length.out = nn)
+
+
+
+  
+k<- 1
+phi <- 200
+
+z<-matrix(data= NA, nrow = nn, ncol = nn)
+
+
+for(h in 1:nn)
+{
+  for(j in 1:nn)
+  {
+    p_e<- c(pe0[h],0.6)
+    p_s<- c(ps0[j],0.6)
+    p<- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p [i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    z[h,j] <- pcs(n,e,s,p,k)
+  }
+}
+
+
+plot(pe0,z[,5])
+plot(ps0,z[5,])
+```
+
+
+```{r}
+
+nn<-30
+# 准备数据
+delta_e<-0.2
+delta_s<-0.4
+pe0 <- seq(0, 1-delta_e, length.out = nn)
+ps0 <- seq(0, 1-delta_s, length.out = nn)
+
+
+
+  
+k<- 1
+phi <- 0.1
+
+z<-matrix(data= NA, nrow = nn, ncol = nn)
+
+
+for(h in 1:nn)
+{
+  for(j in 1:nn)
+  {
+    p_e<- c(pe0[h],pe0[h]+delta_e)
+    p_s<- c(ps0[j],ps0[j]+delta_s)
+    p<- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p [i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    z[h,j] <- pcs(n,e,s,p,k)
+  }
+}
+
+
+plot(pe0,z[,5])
+plot(ps0,z[5,])
+```
+
+
+
+
+
+
+
+```{r}
+library(rgl)
+persp3d(pe, ps, zz, col = "lightgreen", xlab = "pe", ylab = "ps", zlab = "prob")
+
+```
+
+
+```{r}
+persp3d(pe0, ps0, z, col = "lightgreen", xlab = "pe0", ylab = "ps0", zlab = "prob")
+```
+
+
+#simulation
+
+```{r}
+#simulation
+n1<-24
+e<-4
+s<-4
+NN<-100
+result<-seq(0,0,length=NN)
+
+for(j in  1:NN)
+{
+ss<-0
+N<-1000
+
+x0<-rmultinom(N,n1,p[1,])
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p[2,])
+
+
+
+
+for( i in 1:N)
+{
+  if( (x1[1,i]+x1[2,i]-(x0[1,i]+x0[2,i]))>=e & (x1[1,i]+x1[3,i]-(x0[1,i]+x0[3,i]))>=s  )
+  {
+    ss<-ss+1
+  }
+
+}
+result[j]<-ss/N
+}
+
+summary(result)
+```
+
+#PCS1-independent
+```{r}
+Delta_e<-0
+
+Delta_s<-0
+
+
+
+innerfct<-function(wsk)
+{
+  dnorm(we0)*dnorm(ws0)*dnorm(wek)*dnorm(wsk)
+}
+
+
+fct_norm_hypo<-function(ye,ys,n,pe0,ps0,delta_e,delta_s)
+{
+  
+  Delta_e<-asin(sqrt(pe0+delta_e))-asin(sqrt(pe0))
+
+  Delta_s<-asin(sqrt(ps0+delta_s))-asin(sqrt(ps0))
+
+  
+
+  
+  UUU<-integrate(function(we0) { sapply(we0, function(we0) { 
+              integrate(function(ws0){  sapply(ws0, function(ws0) {
+              integrate(function(wek){  sapply(wek, function(wek) { 
+              integrate(function(wsk)
+                dnorm(we0)*dnorm(ws0)*dnorm(wek)*dnorm(wsk)
+               ,ws0-sqrt(4*n)*Delta_s+sqrt(2)*ys, Inf)$value
+              })},we0-sqrt(4*n)*Delta_e+sqrt(2)*ye, Inf)$value })},-Inf, Inf)$value})},-Inf,Inf)$value
+  UUU
+
+}
+
+
+```
+
+
+```{r} 
+fct_norm_hypo(0,0,125,0.5,0.5,0.2,0.2)
+```
+
+#Test
+```{r}
+
+n<-25
+
+ye<-0
+ys<-0
+
+p_e0<-0.5
+p_s0<-0.5
+
+
+delta_e<-0.2
+delta_s<-0.2
+
+
+    
+    p_e<- c(p_e0,p_e0+delta_e)
+    p_s<- c(p_s0,p_s0+delta_s)
+    
+    k<- length(p_e) -1
+    phi <- 1
+
+    p<- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p [i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+   pcs(n,0,0,p,k) 
+```
+
+
+#Simulaiton_multi-nommial
+```{r}
+NN<-100
+result<-seq(0,0,length=NN)
+n1<-125
+
+ye1<-0
+ys1<-0
+
+pe0<-0.5
+ps0<-0.5
+
+delta_e1<-0.2
+delta_s1<-0.2
+
+delta_e2<-0.2
+delta_s2<-0.2
+
+
+    p_e<- c(pe0,pe0+delta_e1-delta_e2, pe0+delta_e1)
+    p_s<- c(ps0,ps0+delta_s1-delta_s2, ps0+delta_s1)
+    
+    k<- length(p_e) -1
+    phi <- 1
+
+    p00 <- matrix(data=NA,nrow = k+1,ncol=4)
+
+    for(i in 1: (k+1))
+    { 
+      p00[i,] <- prob(p_e[i],p_s[i],phi)
+    }
+    
+    
+
+
+for(j in  1:NN)
+{
+s<-0
+N<-10000                                                                                                                                    
+
+x0<-rmultinom(N,n1,p00[1,])
+# x<-matrix(data = NA,nrow = k, ncol = N)
+x1<-rmultinom(N,n1,p00[2,])
+x2<-rmultinom(N,n1,p00[3,])
+
+
+
+for( i in 1:N)
+{
+  xe12<-x2[1,i]+x2[2,i]
+  xs12<-x2[1,i]+x2[3,i]
+  ze12<-sqrt(4*n1)*asin(sqrt(xe12/n1))
+  zs12<-sqrt(4*n1)*asin(sqrt(xs12/n1))
+
+  xe10<-x0[1,i]+x0[2,i]
+  xs10<-x0[1,i]+x0[3,i]
+  ze10<-sqrt(4*n1)*asin(sqrt(xe10/n1))
+  zs10<-sqrt(4*n1)*asin(sqrt(xs10/n1))
+  
+  
+
+  
+  Te12<-(1/sqrt(2))*(ze12-ze10)
+
+
+  Ts12<-(1/sqrt(2))*(zs12-zs10)
+
+  
+  if( Te12>=ye1 & Ts12>=ys1 )
+  {
+    s<-s+1
+  }
+
+}
+result[j]<-s/N
+}
+
+summary(result)
+```
+
+
+
+#Simulaiton_normal
+```{r}
+
+ 
+
+
+
+simulate_UUU <- function(n_sim = 100000, n, pe0, ps0, delta_e, delta_s, ye, ys) {
+  
+  
+   Delta_e<-asin(sqrt(pe0+delta_e))-asin(sqrt(pe0))
+
+  Delta_s<-asin(sqrt(ps0+delta_s))-asin(sqrt(ps0))
+
+  
+  
+  # Step 1: Generate random samples for we0 and ws0 from N(0, 1)
+  we0 <- rnorm(n_sim)
+  ws0 <- rnorm(n_sim)
+  
+  # Step 2: Compute lower bounds for wek and wsk
+  lower_wek <- we0 - sqrt(4 * n) * Delta_e + sqrt(2) * ye
+  lower_wsk <- ws0 - sqrt(4 * n) * Delta_s + sqrt(2) * ys
+  
+  # Step 3: Generate random samples for wek and wsk
+  wek <- rnorm(n_sim)
+  wsk <- rnorm(n_sim)
+  
+  # Step 4: Check whether wek and wsk satisfy their bounds
+  valid <- (wek >= lower_wek) & (wsk >= lower_wsk)
+  
+  # Step 5: Compute the contribution for valid samples
+  contributions <- valid
+  
+  # Step 6: Average the contributions to approximate the integral
+  UUU_approx <- mean(contributions)
+  
+  return(UUU_approx)
+}
+
+# Example usage:
+n <- 125
+
+ye <- 0
+ys <- 0
+n_sim <- 100000
+
+result <- simulate_UUU(n_sim, n, 0.5, 0.5, 0.2, 0.2, ye, ys)
+print(result)
+
+```
+
